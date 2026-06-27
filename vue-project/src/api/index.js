@@ -197,6 +197,19 @@ export const healthApi = {
   check: () => api.get('/', { params: { action: 'health' } }),
 }
 
+export const installApi = {
+  // 检测系统是否已安装（使用 fetch 避免 axios 拦截器在未安装时跳转到登录页）
+  checkStatus: async () => {
+    try {
+      const r = await fetch('/api.php?action=check_install', { cache: 'no-store' })
+      return await r.json()
+    } catch (e) {
+      // 网络错误时假定已安装，让应用继续加载并由后续接口报错
+      return { success: false, installed: true, error: e }
+    }
+  },
+}
+
 export const attachmentsApi = {
   upload: (nid, file) => {
     const fd = new FormData()

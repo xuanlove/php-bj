@@ -50,10 +50,13 @@ define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
 define('ENCRYPTION_KEY', getenv('ENCRYPTION_KEY') ?: '');
 
 if (empty(ENCRYPTION_KEY)) {
-    // 检查是否是安装向导请求（install.php 不需要加密密钥）
+    // 以下请求不需要加密密钥：
+    // - install.php 安装向导
+    // - api.php?action=check_install 安装状态检测（供前端判断是否需要跳转到安装界面）
     $isInstallRequest = isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'install.php') !== false;
+    $isCheckInstallRequest = isset($_GET['action']) && $_GET['action'] === 'check_install';
 
-    if (!$isInstallRequest) {
+    if (!$isInstallRequest && !$isCheckInstallRequest) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(500);
         echo json_encode([

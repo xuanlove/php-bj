@@ -24,11 +24,11 @@ if (session_status() === PHP_SESSION_NONE) {
 // ========================================
 // 安全检查：检查是否已安装
 // ========================================
-if (file_exists('install.lock')) {
+if (file_exists(__DIR__ . '/install.lock')) {
     // 已安装，返回错误信息
     header('Content-Type: application/json');
     die(json_encode([
-        'success' => false, 
+        'success' => false,
         'message' => '系统已安装完成！如需重新安装，请先删除 install.lock 文件。',
         'installed' => true,
         'redirect' => 'index.html'
@@ -153,10 +153,11 @@ function checkEnvironment() {
 
 // 检查目录
 function checkDirectory($dir) {
-    if (!file_exists($dir)) {
-        @mkdir($dir, 0755, true);
+    $path = __DIR__ . '/' . $dir;
+    if (!file_exists($path)) {
+        @mkdir($path, 0755, true);
     }
-    return is_dir($dir) && is_writable($dir);
+    return is_dir($path) && is_writable($path);
 }
 
 // 测试数据库连接
@@ -207,11 +208,11 @@ function installDatabase() {
         ]);
         
         // 读取 SQL 文件
-        $sql_file = 'database.sql';
+        $sql_file = __DIR__ . '/database.sql';
         if (!file_exists($sql_file)) {
             return ['success' => false, 'message' => '找不到 database.sql 文件'];
         }
-        
+
         $sql = file_get_contents($sql_file);
         
         // 移除单行注释（保留INSERT语句中的注释）
@@ -305,15 +306,19 @@ function installDatabase() {
             . "SITE_URL=http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname($_SERVER['SCRIPT_NAME'] ?? '/') . "\n";
 
         // 备份原有 .env
-        if (file_exists('.env')) {
-            @copy('.env', '.env.bak');
+        $envPath = __DIR__ . '/.env';
+        if (file_exists($envPath)) {
+            @copy($envPath, __DIR__ . '/.env.bak');
         }
 
-        file_put_contents('.env', $envContent);
-        
+        $writeResult = file_put_contents($envPath, $envContent);
+        if ($writeResult === false) {
+            return ['success' => false, 'message' => '无法写入 .env 配置文件，请检查目录权限'];
+        }
+
         // 清除Session中的数据库密码（安全措施）
         unset($_SESSION['db_config']);
-        
+
         return ['success' => true, 'message' => '数据库安装成功'];
     } catch (Exception $e) {
         return ['success' => false, 'message' => '安装失败: ' . $e->getMessage()];
@@ -322,59 +327,78 @@ function installDatabase() {
 
 // 创建管理员账户
 function createAdmin() {
-    if (!file_exists('config.php')) {
+    if (!file_exists(__DIR__ . '/config.php')) {
         return ['success' => false, 'message' => '请先完成数据库安装'];
     }
-    
+
     // 验证验证码（必须在require config.php之前，因为config.php会重建session）
     $captcha = $_POST['captcha'] ?? '';
     if (empty($captcha)) {
         return ['success' => false, 'message' => '请输入验证码'];
     }
-    
-    require_once 'CaptchaClass.php';
+
+    require_once __DIR__ . '/CaptchaClass.php';
     $captcha_verify = Captcha::verify($captcha);
     if (!$captcha_verify['success']) {
         return $captcha_verify;
     }
-    
-    // 重要：验证码验证成功后，保存验证结果到变量
-    // 因为require config.php可能导致session重建
-    $captcha_verified = true;
-    
-    require_once 'config.php';
-    
-    $username = $_POST['admin_username'] ?? '';
-    $email = $_POST['admin_email'] ?? '';
+
+    require_once __DIR__ . '/config.php';
+
+    $username = trim($_POST['admin_username'] ?? '');
+    $email = trim($_POST['admin_email'] ?? '');
     $password = $_POST['admin_password'] ?? '';
-    $fullname = $_POST['admin_fullname'] ?? '';
+    $fullname = trim($_POST['admin_fullname'] ?? '');
     $registration_mode = $_POST['registration_mode'] ?? 'invite';
-    
+
     if (empty($username) || empty($email) || empty($password)) {
         return ['success' => false, 'message' => '用户名、邮箱和密码不能为空'];
     }
-    
+
+    // 验证用户名格式
+    if (!validateUsername($username)) {
+        return ['success' => false, 'message' => '用户名只能包含字母、数字和下划线，长度3-20位'];
+    }
+
+    // 验证邮箱格式
+    if (!validateEmail($email)) {
+        return ['success' => false, 'message' => '邮箱格式不正确'];
+    }
+
+    // 验证密码强度
+    $passwordValidation = validatePassword($password);
+    if (!$passwordValidation['valid']) {
+        return ['success' => false, 'message' => $passwordValidation['message']];
+    }
+
     try {
         $db = Database::getInstance()->getConnection();
-        
+
+        // 检查用户名或邮箱是否已存在
+        $stmt = $db->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+        $stmt->execute([$username, $email]);
+        if ($stmt->fetch()) {
+            return ['success' => false, 'message' => '用户名或邮箱已存在'];
+        }
+
         // 删除默认管理员（使用参数化查询防止SQL注入）
         $stmt = $db->prepare("DELETE FROM users WHERE username = ?");
         $stmt->execute(['admin']);
-        
+
         // 创建新管理员
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $db->prepare(
-            "INSERT INTO users (username, email, password, full_name, role, status) 
+            "INSERT INTO users (username, email, password, full_name, role, status)
              VALUES (?, ?, ?, ?, 'admin', 'active')"
         );
         $stmt->execute([$username, $email, $hashed_password, $fullname]);
-        
+
         // 更新注册模式
         $stmt = $db->prepare(
             "UPDATE system_settings SET setting_value = ? WHERE setting_key = 'registration_mode'"
         );
         $stmt->execute([$registration_mode]);
-        
+
         // ========================================
         // 创建安装锁定文件（重要安全措施）
         // ========================================
@@ -386,10 +410,14 @@ function createAdmin() {
             'php_version' => PHP_VERSION,
             'installation_id' => bin2hex(random_bytes(16))
         ];
-        
-        file_put_contents('install.lock', json_encode($lock_content, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        chmod('install.lock', 0444); // 设置为只读
-        
+
+        $lockPath = __DIR__ . '/install.lock';
+        $writeResult = file_put_contents($lockPath, json_encode($lock_content, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        if ($writeResult === false) {
+            return ['success' => false, 'message' => '管理员账户已创建，但无法写入 install.lock 文件，请手动创建该文件'];
+        }
+        @chmod($lockPath, 0444); // 设置为只读
+
         return ['success' => true, 'message' => '管理员账户创建成功'];
     } catch (Exception $e) {
         return ['success' => false, 'message' => $e->getMessage()];

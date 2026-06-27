@@ -243,7 +243,8 @@ class ErrorHandler {
             case E_NOTICE:
             case E_USER_NOTICE:
                 return self::LEVEL_INFO;
-            case E_STRICT:
+            // E_STRICT 在 PHP 8.4 中已移除，引用该常量会触发弃用警告并污染 JSON 输出
+            // 故不再使用 case E_STRICT，所有未匹配的严重级别（含旧版 E_STRICT）落到 default
             case E_DEPRECATED:
             case E_USER_DEPRECATED:
                 return self::LEVEL_DEBUG;

@@ -8,8 +8,28 @@
     <link rel="stylesheet" href="/assets/fontawesome/all.min.css">
     <script type="module" crossorigin src="/assets/index-Csizipty.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-Ba3FVcRo.css">
+    <style>
+      #app-loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);z-index:9999;}
+      #app-loading .spinner{width:36px;height:36px;border:3px solid rgba(212,175,55,0.2);border-top-color:#d4af37;border-radius:50%;animation:app-spin 1s linear infinite;}
+      @keyframes app-spin{to{transform:rotate(360deg);}}
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div id="app-loading"><div class="spinner"></div></div>
+    </div>
+    <script>
+      // 快速检测安装状态，未安装时直接跳转安装向导，避免加载完整 Vue 应用
+      (function(){
+        fetch('/api.php?action=check_install', { cache: 'no-store' })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            if (data && data.installed === false) {
+              window.location.replace('install.html');
+            }
+          })
+          .catch(function(){ /* 失败时由 Vue 应用启动时再次检测 */ });
+      })();
+    </script>
   </body>
 </html>

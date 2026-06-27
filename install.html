@@ -64,10 +64,18 @@
         .captcha-box { display: flex; gap: 12px; align-items: center; }
         .captcha-box img { border-radius: 6px; cursor: pointer; height: 40px; }
         .captcha-box input { flex: 1; }
+        .installing-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .installing-mask .spin { font-size: 32px; color: #d4af37; }
     </style>
 </head>
 <body>
-<div class="container">
+<div id="app-loading" style="position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);display:flex;align-items:center;justify-content:center;z-index:9998;">
+    <div style="text-align:center;color:#d4af37;">
+        <div class="spin" style="font-size:32px;display:inline-block;animation:spin 1s linear infinite;">&#8635;</div>
+        <div style="margin-top:12px;font-size:14px;">正在加载安装向导...</div>
+    </div>
+</div>
+<div class="container" id="app-root" style="visibility:hidden;">
     <div class="header">
         <h1>PHP笔记系统 V2.0</h1>
         <p>安装向导</p>
@@ -77,7 +85,7 @@
     <div id="step1" class="step active">
         <div class="card">
             <h2>第一步：环境检测</h2>
-            <div id="env-status"></div>
+            <div id="env-msg"></div>
             <ul id="env-checks" class="check-list"></ul>
         </div>
         <div class="actions">
@@ -179,15 +187,39 @@
 <script>
 const API = 'install.php?action=';
 
+// 防御性消息函数：当目标元素不存在时安全返回，避免抛出异常导致按钮卡死
 function msg(el, text, type) {
     const m = document.getElementById(el + '-msg');
+    if (!m) { return; }
     if (!text) { m.innerHTML = ''; return; }
-    m.innerHTML = '<div class="msg msg-' + type + '">' + text + '</div>';
+    const safeText = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    m.innerHTML = '<div class="msg msg-' + type + '">' + safeText + '</div>';
 }
 
 function goStep(n) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
     document.getElementById('step' + n).classList.add('active');
+}
+
+// 显示安装中遮罩，防止用户重复点击或刷新
+function showInstallingMask(text) {
+    let mask = document.getElementById('installing-mask');
+    if (!mask) {
+        mask = document.createElement('div');
+        mask.id = 'installing-mask';
+        mask.className = 'installing-mask';
+        document.body.appendChild(mask);
+    }
+    mask.innerHTML = '<div style="text-align:center;color:#d4af37;">'
+        + '<div class="spin">&#8635;</div>'
+        + '<div style="margin-top:12px;font-size:14px;">' + (text || '安装中...') + '</div>'
+        + '</div>';
+    mask.style.display = 'flex';
+}
+
+function hideInstallingMask() {
+    const mask = document.getElementById('installing-mask');
+    if (mask) mask.style.display = 'none';
 }
 
 async function api(action, data) {
@@ -210,6 +242,15 @@ async function checkEnv() {
 
     try {
         const r = await api('check_environment');
+        // 已安装时跳转到首页
+        if (r.installed) {
+            window.location.href = r.redirect || 'index.html';
+            return;
+        }
+        if (!r.success) {
+            msg('env', r.message || '检测失败', 'error');
+            return;
+        }
         const list = document.getElementById('env-checks');
         list.innerHTML = r.checks.map(c =>
             '<li>' +
@@ -219,15 +260,14 @@ async function checkEnv() {
             (c.passed ? '' : '<span class="hint">' + c.hint + '</span>') +
             '</li>'
         ).join('');
-        document.getElementById('env-status').innerHTML = r.all_passed
-            ? '<div class="msg msg-success">环境检测通过!</div>'
-            : '<div class="msg msg-error">部分必需环境未通过，请修复后重试。</div>';
+        msg('env', r.all_passed ? '环境检测通过!' : '部分必需环境未通过，请修复后重试。', r.all_passed ? 'success' : 'error');
         if (r.all_passed) document.getElementById('btn-next-1').style.display = '';
     } catch(e) {
-        msg('env', '检测失败: ' + e.message, 'error');
+        msg('env', '检测失败: ' + (e && e.message ? e.message : e), 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '重新检测';
     }
-    btn.disabled = false;
-    btn.innerHTML = '重新检测';
 }
 
 async function testDB() {
@@ -250,10 +290,11 @@ async function testDB() {
             msg('db', r.message, 'error');
         }
     } catch(e) {
-        msg('db', '连接失败: ' + e.message, 'error');
+        msg('db', '连接失败: ' + (e && e.message ? e.message : e), 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '测试连接';
     }
-    btn.disabled = false;
-    btn.innerHTML = '测试连接';
 }
 
 async function installDB() {
@@ -261,6 +302,7 @@ async function installDB() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spin">&#8635;</span> 安装中...';
     msg('db', '', '');
+    showInstallingMask('正在安装数据库，请勿关闭页面...');
     try {
         const r = await api('install_database');
         if (r.success) {
@@ -270,10 +312,12 @@ async function installDB() {
             msg('db', r.message, 'error');
         }
     } catch(e) {
-        msg('db', '安装失败: ' + e.message, 'error');
+        msg('db', '安装失败: ' + (e && e.message ? e.message : e), 'error');
+    } finally {
+        hideInstallingMask();
+        btn.disabled = false;
+        btn.innerHTML = '安装数据库';
     }
-    btn.disabled = false;
-    btn.innerHTML = '安装数据库';
 }
 
 async function createAdmin() {
@@ -283,6 +327,7 @@ async function createAdmin() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spin">&#8635;</span> 安装中...';
     msg('admin', '', '');
+    showInstallingMask('正在创建管理员账户...');
     try {
         const r = await api('create_admin', {
             admin_username: document.getElementById('admin_username').value,
@@ -296,20 +341,46 @@ async function createAdmin() {
             goStep(4);
         } else {
             msg('admin', r.message, 'error');
-            if (r.message && r.message.includes('验证码')) refreshCaptcha();
+            if (r.message && r.message.indexOf('验证码') !== -1) refreshCaptcha();
         }
     } catch(e) {
-        msg('admin', '安装失败: ' + e.message, 'error');
+        msg('admin', '安装失败: ' + (e && e.message ? e.message : e), 'error');
+    } finally {
+        hideInstallingMask();
+        btn.disabled = false;
+        btn.innerHTML = '完成安装';
     }
-    btn.disabled = false;
-    btn.innerHTML = '完成安装';
 }
 
 function refreshCaptcha() {
     document.getElementById('captcha-img').src = 'Captcha.php?_=' + Date.now();
 }
 
-checkEnv();
+// 启动入口：先检测是否已安装，再决定是否显示安装向导
+(async function init() {
+    try {
+        // 通过 api.php 的 check_install 接口检测系统是否已安装
+        const r = await fetch('api.php?action=check_install', { cache: 'no-store' });
+        const data = await r.json();
+        if (data && data.installed) {
+            // 已安装，跳转到首页
+            window.location.replace('index.html');
+            return;
+        }
+    } catch (e) {
+        // 检测失败时继续显示安装向导（容错）
+        console.warn('check_install 检测失败：', e);
+    }
+
+    // 显示主界面，隐藏加载遮罩
+    const root = document.getElementById('app-root');
+    if (root) root.style.visibility = 'visible';
+    const loading = document.getElementById('app-loading');
+    if (loading) loading.style.display = 'none';
+
+    // 自动开始环境检测
+    checkEnv();
+})();
 </script>
 </body>
 </html>

@@ -238,7 +238,7 @@ class BackupManager {
     /**
      * 获取备份日志
      */
-    public function getLogs(int $configId = null, int $limit = 50): array {
+    public function getLogs(?int $configId = null, int $limit = 50): array {
         try {
             if ($configId) {
                 $stmt = $this->db->prepare(
