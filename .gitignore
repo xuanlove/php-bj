@@ -1,0 +1,31 @@
+﻿# 依赖
+/vendor/
+/vue-project/node_modules/
+
+# 构建产物（前端 dist 由构建生成，不入库）
+/vue-project/dist/
+/assets/
+
+# 敏感配置（安装后生成，含数据库密码与加密密钥）
+/install.lock
+
+# 运行时目录
+/logs/
+/uploads/
+/attachments/
+
+# 环境变量
+.env
+.env.*
+.env.bak
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.bak
+*.swp

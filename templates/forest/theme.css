@@ -1,0 +1,83 @@
+/* ===== NoteVault Forest Green Template ===== */
+/* 森林绿主题 — 自然、护眼 */
+
+:root {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f7faf5;
+    --tertiary-bg: #edf5e8;
+    --accent: #1a3a1a;
+    --accent-light: #2d5a2d;
+    --accent-gold: #38a169;
+    --accent-copper: #2f855a;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-tertiary: #a0aec0;
+    --border-color: #d4e6cc;
+    --hover-bg: #edf5e8;
+    --success: #276749;
+    --danger: #c53030;
+    --warning: #c05621;
+    --info: #2b6cb0;
+    --shadow-sm: 0 1px 3px rgba(56, 161, 105, 0.06);
+    --shadow-md: 0 4px 14px rgba(56, 161, 105, 0.08);
+    --shadow-lg: 0 8px 30px rgba(56, 161, 105, 0.1);
+    --border-radius: 10px;
+    --border-radius-lg: 14px;
+    --font-body: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: 'Playfair Display', serif;
+    --transition-speed: 0.3s;
+}
+
+body.light-theme {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f7faf5;
+    --tertiary-bg: #edf5e8;
+    --accent: #1a3a1a;
+    --accent-light: #2d5a2d;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-tertiary: #a0aec0;
+    --border-color: #d4e6cc;
+    --hover-bg: #edf5e8;
+    --shadow-sm: 0 1px 3px rgba(56, 161, 105, 0.06);
+    --shadow-md: 0 4px 14px rgba(56, 161, 105, 0.08);
+    --shadow-lg: 0 8px 30px rgba(56, 161, 105, 0.1);
+}
+
+body:not(.light-theme) {
+    --primary-bg: #0d1a0d;
+    --secondary-bg: #132413;
+    --tertiary-bg: #1a331a;
+    --accent: #e2f0e2;
+    --accent-light: #a0d4a0;
+    --accent-gold: #68d391;
+    --accent-copper: #48bb78;
+    --text-primary: #e2f0e2;
+    --text-secondary: #90b490;
+    --text-tertiary: #5a7a5a;
+    --border-color: #1e3a1e;
+    --hover-bg: #1a331a;
+    --success: #48bb78;
+    --danger: #fc8181;
+    --warning: #f6ad55;
+    --info: #63b3ed;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 14px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+.note-card { border: 1px solid var(--border-color); border-radius: var(--border-radius-lg); }
+.note-card:hover { border-color: var(--accent-gold); box-shadow: 0 4px 16px rgba(56,161,105,0.15); transform: translateY(-1px); }
+.auth-box::before { background: linear-gradient(135deg, #68d391, #38a169); height: 3px; }
+.btn-primary { background: var(--accent-gold); color: #fff; border: none; font-weight: 600; border-radius: var(--border-radius-lg); }
+.btn-primary:hover { background: var(--accent-copper); }
+.nav-item.active { background: rgba(56, 161, 105, 0.1); color: var(--accent-gold); border-radius: var(--border-radius); }
+input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 0 2px rgba(56,161,105,0.15); border-radius: var(--border-radius); }
+::selection { background: rgba(56, 161, 105, 0.2); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
+
+.sidebar { border-right-color: var(--border-color); }
+.stat-card { border-left: 3px solid var(--accent-gold); }
+.tag { background: rgba(56,161,105,0.1); color: var(--accent-gold); border-radius: var(--border-radius); }
+.modal-content { border-radius: var(--border-radius-lg); }

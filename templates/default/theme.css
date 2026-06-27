@@ -1,0 +1,82 @@
+/* ===== NoteVault Default Template ===== */
+/* 经典暗金色主题 — 优雅、沉稳 */
+
+/* ── CSS 变量（浅色主题默认值） ── */
+:root {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f8f8f8;
+    --tertiary-bg: #f0f0f0;
+    --accent: #000000;
+    --accent-light: #333333;
+    --accent-gold: #d4af37;
+    --accent-copper: #b87333;
+    --text-primary: #111111;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border-color: #e0e0e0;
+    --hover-bg: #f5f5f5;
+    --success: #2e7d32;
+    --danger: #c62828;
+    --warning: #e65100;
+    --info: #1565c0;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --border-radius: 8px;
+    --border-radius-lg: 12px;
+    --font-body: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: 'Playfair Display', serif;
+    --transition-speed: 0.3s;
+}
+
+/* ── 浅色主题覆盖 ── */
+body.light-theme {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f8f8f8;
+    --tertiary-bg: #f0f0f0;
+    --accent: #000000;
+    --accent-light: #333333;
+    --text-primary: #111111;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border-color: #e0e0e0;
+    --hover-bg: #f5f5f5;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* ── 深色主题覆盖 ── */
+body:not(.light-theme) {
+    --primary-bg: #0a0a0a;
+    --secondary-bg: #141414;
+    --tertiary-bg: #1e1e1e;
+    --accent: #ffffff;
+    --accent-light: #cccccc;
+    --accent-gold: #f0d060;
+    --accent-copper: #d4956a;
+    --text-primary: #f0f0f0;
+    --text-secondary: #999999;
+    --text-tertiary: #666666;
+    --border-color: #2a2a2a;
+    --hover-bg: #1e1e1e;
+    --success: #4caf50;
+    --danger: #ef5350;
+    --warning: #ff9800;
+    --info: #42a5f5;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+/* ── 组件微调 ── */
+.note-card { border: 1px solid var(--border-color); }
+.note-card:hover { border-color: var(--accent-gold); box-shadow: var(--shadow-md); }
+.auth-box::before { background: linear-gradient(135deg, var(--accent-gold), var(--accent-copper)); height: 3px; }
+.btn-primary { background: var(--accent-gold); color: #000; border: none; font-weight: 600; }
+.btn-primary:hover { background: var(--accent-copper); }
+.nav-item.active { background: rgba(212, 175, 55, 0.12); color: var(--accent-gold); }
+input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 0 2px rgba(212,175,55,0.15); }
+::selection { background: rgba(212, 175, 55, 0.25); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }

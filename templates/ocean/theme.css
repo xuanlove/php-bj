@@ -1,0 +1,82 @@
+/* ===== NoteVault Ocean Blue Template ===== */
+/* 深海蓝主题 — 冷静、专注 */
+
+:root {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f5f8fb;
+    --tertiary-bg: #edf2f7;
+    --accent: #1a365d;
+    --accent-light: #2b6cb0;
+    --accent-gold: #3182ce;
+    --accent-copper: #2c5282;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-tertiary: #a0aec0;
+    --border-color: #e2e8f0;
+    --hover-bg: #edf2f7;
+    --success: #276749;
+    --danger: #c53030;
+    --warning: #c05621;
+    --info: #2b6cb0;
+    --shadow-sm: 0 1px 3px rgba(49, 130, 206, 0.06);
+    --shadow-md: 0 4px 14px rgba(49, 130, 206, 0.08);
+    --shadow-lg: 0 8px 30px rgba(49, 130, 206, 0.1);
+    --border-radius: 8px;
+    --border-radius-lg: 12px;
+    --font-body: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-heading: 'Playfair Display', serif;
+    --transition-speed: 0.3s;
+}
+
+body.light-theme {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f5f8fb;
+    --tertiary-bg: #edf2f7;
+    --accent: #1a365d;
+    --accent-light: #2b6cb0;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-tertiary: #a0aec0;
+    --border-color: #e2e8f0;
+    --hover-bg: #edf2f7;
+    --shadow-sm: 0 1px 3px rgba(49, 130, 206, 0.06);
+    --shadow-md: 0 4px 14px rgba(49, 130, 206, 0.08);
+    --shadow-lg: 0 8px 30px rgba(49, 130, 206, 0.1);
+}
+
+body:not(.light-theme) {
+    --primary-bg: #0f1b2d;
+    --secondary-bg: #162744;
+    --tertiary-bg: #1d3557;
+    --accent: #e2e8f0;
+    --accent-light: #a0c4e8;
+    --accent-gold: #63b3ed;
+    --accent-copper: #4299e1;
+    --text-primary: #e2e8f0;
+    --text-secondary: #90b4d0;
+    --text-tertiary: #5a7a9a;
+    --border-color: #1e3a5f;
+    --hover-bg: #1d3557;
+    --success: #48bb78;
+    --danger: #fc8181;
+    --warning: #f6ad55;
+    --info: #63b3ed;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 14px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+.note-card { border: 1px solid var(--border-color); }
+.note-card:hover { border-color: var(--accent-gold); box-shadow: 0 4px 16px rgba(49,130,206,0.15); }
+.auth-box::before { background: linear-gradient(135deg, #63b3ed, #3182ce); height: 3px; }
+.btn-primary { background: var(--accent-gold); color: #fff; border: none; font-weight: 600; }
+.btn-primary:hover { background: var(--accent-copper); }
+.nav-item.active { background: rgba(49, 130, 206, 0.1); color: var(--accent-gold); }
+input:focus, textarea:focus, select:focus { border-color: var(--accent-gold); box-shadow: 0 0 0 2px rgba(49,130,206,0.15); }
+::selection { background: rgba(49, 130, 206, 0.2); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
+
+.sidebar { border-right-color: var(--border-color); }
+.stat-card { border-left: 3px solid var(--accent-gold); }
+.badge-info { background: rgba(49,130,206,0.12); color: var(--accent-gold); }

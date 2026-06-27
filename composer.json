@@ -1,0 +1,7 @@
+{
+    "require": {
+        "aliyuncs/oss-sdk-php": "^2.7",
+        "qcloud/cos-sdk-v5": "^2.6",
+        "aws/aws-sdk-php": "^3.337"
+    }
+}
