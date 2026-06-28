@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <div class="modal-overlay" role="dialog" aria-modal="true" @click.self="$emit('close')">
     <div class="modal notifications-modal">
       <div class="modal-header">
         <h3>通知</h3>
@@ -54,7 +54,26 @@ function clearAll() { if (confirm('确定清空所有通知？')) store.clearAll
 </script>
 
 <style scoped>
-.notifications-modal { width: 480px; max-height: 80vh; display: flex; flex-direction: column; }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.modal {
+  background: var(--secondary-bg, #1e1e2e);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.notifications-modal { width: 480px; max-width: 90vw; max-height: 80vh; display: flex; flex-direction: column; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
 .modal-header h3 { font-size: 18px; }
 .header-actions { display: flex; align-items: center; gap: 8px; }

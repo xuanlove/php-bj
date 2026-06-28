@@ -29,6 +29,9 @@ require_once 'Tags.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $request = isset($_GET['action']) ? $_GET['action'] : '';
 
+// 缓存的 JSON 请求体（由 verifyCSRF 首次解析，供后续 case 复用，避免重复读取 php://input）
+$cachedRequestBody = null;
+
 // 执行中间件
 runMiddlewares($request);
 
@@ -100,18 +103,27 @@ function sendResponse($data) {
 
 // CSRF验证函数（用于POST/PUT/DELETE请求）
 function verifyCSRF() {
+    global $cachedRequestBody;
     // 获取CSRF Token（从Header或POST数据）
     $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '';
-    
-    // 从JSON body中获取（如果是JSON请求）
+
     if (empty($token) && strpos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
-        $body = json_decode(file_get_contents('php://input'), true);
-        $token = $body['csrf_token'] ?? '';
+        // 缓存请求体供后续 case 使用
+        $cachedRequestBody = json_decode(file_get_contents('php://input'), true);
+        $token = $cachedRequestBody['csrf_token'] ?? '';
     }
-    
+
     if (!verifyCSRFToken($token)) {
         sendResponse(['success' => false, 'message' => 'CSRF验证失败，请刷新页面重试']);
     }
+}
+
+// 辅助函数：获取 JSON 请求体（优先使用缓存）
+function getJsonBody() {
+    global $cachedRequestBody;
+    if ($cachedRequestBody !== null) return $cachedRequestBody;
+    $cachedRequestBody = json_decode(file_get_contents('php://input'), true);
+    return $cachedRequestBody;
 }
 
 // 管理员权限验证（增强版）
@@ -193,7 +205,7 @@ switch ($request) {
         
     case 'register':
         verifyCSRF();  // CSRF验证
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($auth->register(
             $data['username'],
             $data['email'],
@@ -206,7 +218,7 @@ switch ($request) {
         
     case 'login':
         verifyCSRF();  // CSRF验证
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         
         // API速率限制：登录接口每分钟10次
         $loginCheck = $rateLimiter->checkLogin($clientIP, $data['username'] ?? null);
@@ -328,7 +340,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($notes->create($user_id, $data));
         break;
         
@@ -337,7 +349,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $note_id = $data['note_id'];
         unset($data['note_id']);
         sendResponse($notes->update($note_id, $user_id, $data));
@@ -348,7 +360,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $note_id = intval($data['note_id'] ?? 0);
         sendResponse($recycleBin->moveToRecycleBin($note_id, $user_id));
         break;
@@ -395,7 +407,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $old_tag = $data['old_tag'] ?? '';
         $new_tag = $data['new_tag'] ?? '';
         sendResponse($tags->renameTag($user_id, $old_tag, $new_tag));
@@ -406,7 +418,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $tag_name = $data['tag'] ?? '';
         sendResponse($tags->deleteTagByName($user_id, $tag_name));
         break;
@@ -416,7 +428,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($tags->create($user_id, $data));
         break;
 
@@ -425,7 +437,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($tags->update($user_id, $data));
         break;
 
@@ -434,7 +446,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($tags->addTagToNote($user_id, $data['note_id'] ?? 0, $data['tag_id'] ?? 0));
         break;
 
@@ -443,7 +455,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($tags->removeTagFromNote($user_id, $data['note_id'] ?? 0, $data['tag_id'] ?? 0));
         break;
 
@@ -479,7 +491,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $note_ids = $data['note_ids'] ?? [];
         $format = $data['format'] ?? 'markdown';
         sendResponse($notes->exportNotes($user_id, $note_ids, $format));
@@ -512,7 +524,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $attachment_id = $data['attachment_id'] ?? $_GET['attachment_id'] ?? 0;
         sendResponse($notes->deleteAttachment($attachment_id, $user_id));
         break;
@@ -523,7 +535,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($notes->createFolder($user_id, $data['name'], $data['parent_id'] ?? null));
         break;
         
@@ -539,7 +551,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $folder_id = intval($data['folder_id'] ?? 0);
         unset($data['folder_id']);
         sendResponse($notes->updateFolder($folder_id, $user_id, $data));
@@ -560,7 +572,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($ai->proofread($data['note_id'], $user_id, $data['provider'] ?? 'chatgpt'));
         break;
         
@@ -569,7 +581,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($ai->continueWriting($data['note_id'], $user_id, $data['provider'] ?? 'chatgpt'));
         break;
         
@@ -578,7 +590,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($ai->summarize($data['note_id'], $user_id, $data['provider'] ?? 'chatgpt'));
         break;
         
@@ -587,7 +599,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($ai->rewrite($data['note_id'], $user_id, $data['provider'] ?? 'chatgpt', $data['style'] ?? 'professional'));
         break;
         
@@ -615,7 +627,7 @@ switch ($request) {
         if (!$auth->isLoggedIn() || $_SESSION['role'] !== 'admin') {
             sendResponse(['success' => false, 'message' => '需要管理员权限']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($backup->createConfig($data));
         break;
 
@@ -625,7 +637,7 @@ switch ($request) {
         if (!$auth->isLoggedIn() || $_SESSION['role'] !== 'admin') {
             sendResponse(['success' => false, 'message' => '需要管理员权限']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($backup->updateConfig($data['id'] ?? 0, $data));
         break;
 
@@ -665,7 +677,7 @@ switch ($request) {
         if (!$auth->isLoggedIn() || $_SESSION['role'] !== 'admin') {
             sendResponse(['success' => false, 'message' => '需要管理员权限']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($backup->testConnection($data));
         break;
 
@@ -730,7 +742,7 @@ switch ($request) {
         verifyCSRF();
         verifyAdmin();
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $db = Database::getInstance()->getConnection();
         
         $note_id = intval($data['note_id'] ?? 0);
@@ -757,7 +769,7 @@ switch ($request) {
         verifyCSRF();
         verifyAdmin();
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $db = Database::getInstance()->getConnection();
         
         $note_id = intval($data['note_id'] ?? 0);
@@ -809,7 +821,7 @@ switch ($request) {
         verifyCSRF();
         verifyAdmin();
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $db = Database::getInstance()->getConnection();
         
         // 验证状态值（必须与数据库 users.status ENUM 一致）
@@ -817,9 +829,18 @@ switch ($request) {
         if (!in_array($data['status'], $allowedStatuses)) {
             sendResponse(['success' => false, 'message' => '无效的状态值']);
         }
-        
+
+        $user_id_to_toggle = intval($data['user_id'] ?? 0);
+        if ($user_id_to_toggle <= 0) {
+            sendResponse(['success' => false, 'message' => '无效的用户ID']);
+        }
+        // 防止管理员修改自己的状态
+        if ($user_id_to_toggle == $_SESSION['user_id']) {
+            sendResponse(['success' => false, 'message' => '不能修改自己的状态']);
+        }
+
         $stmt = $db->prepare("UPDATE users SET status = ? WHERE id = ?");
-        $stmt->execute([$data['status'], $data['user_id']]);
+        $stmt->execute([$data['status'], $user_id_to_toggle]);
         
         sendResponse(['success' => true, 'message' => '用户状态已更新']);
         break;
@@ -829,7 +850,7 @@ switch ($request) {
         verifyCSRF();
         verifyAdmin();
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $db = Database::getInstance()->getConnection();
         
         // 防止删除自己
@@ -887,7 +908,7 @@ switch ($request) {
         verifyCSRF();
         verifyAdmin();
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $db = Database::getInstance()->getConnection();
         
         // 白名单验证设置键名
@@ -935,7 +956,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($versionControl->saveVersion(
             $data['note_id'],
             $user_id,
@@ -970,7 +991,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($versionControl->rollbackToVersion(
             $data['note_id'],
             $data['version_id'],
@@ -994,7 +1015,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($versionControl->deleteVersion($data['version_id'], $user_id));
         break;
     
@@ -1005,7 +1026,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($share->createShare($data['note_id'], $user_id, [
             'password' => $data['password'] ?? null,
             'expires_in' => $data['expires_in'] ?? null,
@@ -1030,7 +1051,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($share->updateShare($data['share_id'], $user_id, $data));
         break;
         
@@ -1040,7 +1061,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
 
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($share->deleteShare($data['share_id'], $user_id));
         break;
 
@@ -1054,7 +1075,7 @@ switch ($request) {
         break;
 
     case 'share_content':
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $token = $data['token'] ?? $_GET['token'] ?? '';
         $password = $data['password'] ?? null;
         if (empty($token)) {
@@ -1069,7 +1090,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($noteShares->shareToUser(
             $data['note_id'],
             $user_id,
@@ -1105,7 +1126,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($noteShares->updatePermission($data['share_id'], $user_id, $data['permission']));
         break;
 
@@ -1114,7 +1135,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($noteShares->revokeShare($data['share_id'], $user_id));
         break;
 
@@ -1124,7 +1145,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($comments->addComment(
             $data['note_id'],
             $user_id,
@@ -1146,7 +1167,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($comments->updateComment(
             $data['comment_id'],
             $user_id,
@@ -1159,7 +1180,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($comments->deleteComment($data['comment_id'], $user_id));
         break;
 
@@ -1179,7 +1200,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($recycleBin->moveToRecycleBin($data['note_id'], $user_id));
         break;
         
@@ -1189,7 +1210,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($recycleBin->restoreFromRecycleBin($data['note_id'], $user_id));
         break;
         
@@ -1199,7 +1220,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($recycleBin->permanentDelete($data['note_id'], $user_id));
         break;
         
@@ -1245,7 +1266,7 @@ switch ($request) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($userSettings->updateSettings($user_id, $data));
         break;
         
@@ -1374,7 +1395,7 @@ switch ($request) {
     case 'check_lockout':
         // 此接口允许未登录用户检查自己的锁定状态（登录流程中使用）
         // 已登录用户只能查询自己的锁定状态
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         
         if ($auth->isLoggedIn()) {
             // 已登录用户：只能查询自己的锁定状态
@@ -1417,7 +1438,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $notification_id = intval($data['notification_id'] ?? 0);
         sendResponse($notifications->markAsRead($notification_id, $user_id));
         break;
@@ -1435,7 +1456,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $notification_id = intval($data['notification_id'] ?? 0);
         sendResponse($notifications->deleteNotification($notification_id, $user_id));
         break;
@@ -1470,7 +1491,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($templates->create($user_id, $data));
         break;
     
@@ -1479,7 +1500,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $template_id = intval($data['template_id'] ?? 0);
         sendResponse($templates->update($template_id, $user_id, $data));
         break;
@@ -1489,7 +1510,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $template_id = intval($data['template_id'] ?? 0);
         sendResponse($templates->delete($template_id, $user_id));
         break;
@@ -1507,7 +1528,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $template_id = intval($data['template_id'] ?? 0);
         sendResponse($templates->duplicate($template_id, $user_id));
         break;
@@ -1532,7 +1553,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($teamSpaces->createTeam($user_id, $data));
         break;
     
@@ -1549,7 +1570,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         sendResponse($teamSpaces->updateTeam($team_id, $user_id, $data));
         break;
@@ -1559,7 +1580,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         sendResponse($teamSpaces->deleteTeam($team_id, $user_id));
         break;
@@ -1569,7 +1590,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         sendResponse($teamSpaces->inviteMember($team_id, $user_id, $data));
         break;
@@ -1579,7 +1600,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         sendResponse($teamSpaces->addMember($team_id, $user_id, $data));
         break;
@@ -1589,7 +1610,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         $target_id = intval($data['user_id'] ?? 0);
         sendResponse($teamSpaces->removeMember($team_id, $user_id, $target_id));
@@ -1600,7 +1621,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $token = $data['token'] ?? '';
         sendResponse($teamSpaces->acceptInvite($user_id, $token));
         break;
@@ -1619,7 +1640,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $note_id = intval($data['note_id'] ?? 0);
         $team_id = intval($data['team_id'] ?? 0);
         $permission = $data['permission'] ?? 'read';
@@ -1631,7 +1652,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         sendResponse($teamSpaces->createFolder($team_id, $user_id, $data));
         break;
@@ -1649,7 +1670,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         $team_id = intval($data['team_id'] ?? 0);
         $target_member_id = intval($data['user_id'] ?? 0);
         $new_role = $data['role'] ?? 'member';
@@ -1669,7 +1690,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($apiKeys->create($user_id, $data['name'], $data['permissions'] ?? []));
         break;
 
@@ -1678,7 +1699,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($apiKeys->delete($data['key_id'], $user_id));
         break;
 
@@ -1687,7 +1708,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($apiKeys->toggleStatus($data['key_id'], $user_id));
         break;
 
@@ -1711,7 +1732,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($twoFactor->enable($user_id, $data['secret'], $data['code']));
         break;
 
@@ -1720,7 +1741,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($twoFactor->disable($user_id, $data['code']));
         break;
 
@@ -1728,7 +1749,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($twoFactor->verifyLogin($user_id, $data['code']));
         break;
 
@@ -1738,7 +1759,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($auth->updateProfile($user_id, $data));
         break;
 
@@ -1747,7 +1768,7 @@ switch ($request) {
         if (!$auth->isLoggedIn()) {
             sendResponse(['success' => false, 'message' => '需要登录']);
         }
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = getJsonBody();
         sendResponse($auth->changePassword(
             $user_id,
             $data['old_password'] ?? '',

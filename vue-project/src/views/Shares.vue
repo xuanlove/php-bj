@@ -14,7 +14,10 @@
             <small v-if="s.expires_at">有效期至: {{ formatDate(s.expires_at) }}</small>
             <small>访问量: {{ s.view_count || 0 }}</small>
           </div>
-          <button class="btn btn-danger btn-sm" @click="deletePublicShare(s.id)">删除</button>
+          <div class="share-actions">
+            <button class="btn btn-primary btn-sm" @click="copyLink(s.share_token)">复制链接</button>
+            <button class="btn btn-danger btn-sm" @click="deletePublicShare(s.id)">删除</button>
+          </div>
         </div>
       </div>
     </div>
@@ -75,6 +78,12 @@ onMounted(async () => {
 
 function formatDate(d) { return dayjs(d).format('YYYY-MM-DD') }
 
+async function copyLink(token) {
+  const url = `${window.location.origin}/#/share/${token}`
+  try { await navigator.clipboard.writeText(url); alert('链接已复制') }
+  catch (e) { alert('复制失败') }
+}
+
 async function deletePublicShare(id) {
   if (confirm('确定删除此分享？')) {
     const r = await shareApi.delete(id)
@@ -104,6 +113,7 @@ async function revokeShare(id) {
 .share-info h3 { margin-bottom: 4px; font-size: 15px; }
 .share-info p { font-size: 13px; color: var(--accent-gold); margin-bottom: 4px; }
 .share-info small { font-size: 12px; color: var(--text-muted); margin-right: 12px; }
+.share-actions { display: flex; gap: 8px; }
 .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
 .btn-danger { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; cursor: pointer; }
 .btn-danger:hover { background: rgba(239,68,68,0.25); }

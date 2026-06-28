@@ -1,14 +1,15 @@
 <template>
   <div class="page">
     <h1>回收站</h1>
-    <div v-if="notes.length === 0" class="empty">回收站为空</div>
+    <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
+    <div v-else-if="notes.length === 0" class="empty">回收站为空</div>
     <div v-else>
       <button class="btn btn-danger" @click="emptyAll" style="margin-bottom:20px">清空回收站</button>
       <div v-for="note in notes" :key="note.id" class="item">
-        <div><h3>{{ note.title }}</h3><p>{{ note.deleted_at }}</p></div>
+        <div><h3>{{ note.title }}</h3><p>{{ formatTime(note.deleted_at) }}</p></div>
         <div>
-          <button class="btn btn-primary btn-sm" @click="restore(note.id)">恢复</button>
-          <button class="btn btn-danger btn-sm" @click="del(note.id)">删除</button>
+          <button class="btn btn-primary btn-sm" :disabled="restoringId === note.id" @click="restore(note.id)">{{ restoringId === note.id ? '恢复中...' : '恢复' }}</button>
+          <button class="btn btn-danger btn-sm" :disabled="deletingId === note.id" @click="del(note.id)">{{ deletingId === note.id ? '删除中...' : '删除' }}</button>
         </div>
       </div>
     </div>
@@ -20,31 +21,53 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { recycleApi } from '@/api'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const notes = ref([])
+const loading = ref(false)
+const restoringId = ref(null)
+const deletingId = ref(null)
+
+// 格式化删除时间
+const formatTime = (t) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : ''
 
 onMounted(async () => {
-  const r = await recycleApi.list(50, 0)
-  if (r.success) notes.value = r.notes || []
+  loading.value = true
+  try {
+    const r = await recycleApi.list(50, 0)
+    if (r.success) notes.value = r.notes || []
+  } finally {
+    loading.value = false
+  }
 })
 
 async function restore(id) {
-  const r = await recycleApi.restore(id)
-  if (r.success) {
-    notes.value = notes.value.filter(n => n.id !== id)
-  } else {
-    alert(r.message || '恢复失败')
+  restoringId.value = id
+  try {
+    const r = await recycleApi.restore(id)
+    if (r.success) {
+      notes.value = notes.value.filter(n => n.id !== id)
+    } else {
+      alert(r.message || '恢复失败')
+    }
+  } finally {
+    restoringId.value = null
   }
 }
 
 async function del(id) {
   if (confirm('确定永久删除?')) {
-    const r = await recycleApi.permanentDelete(id)
-    if (r.success) {
-      notes.value = notes.value.filter(n => n.id !== id)
-    } else {
-      alert(r.message || '删除失败')
+    deletingId.value = id
+    try {
+      const r = await recycleApi.permanentDelete(id)
+      if (r.success) {
+        notes.value = notes.value.filter(n => n.id !== id)
+      } else {
+        alert(r.message || '删除失败')
+      }
+    } finally {
+      deletingId.value = null
     }
   }
 }
@@ -69,4 +92,5 @@ async function emptyAll() {
 .item p { font-size: 12px; color: var(--text-muted); }
 .btn-sm { padding: 6px 12px; font-size: 12px; margin-left: 8px; }
 .empty { text-align: center; padding: 60px; color: var(--text-muted); }
+.loading { text-align: center; padding: 40px; color: var(--text-muted); }
 </style>

@@ -48,18 +48,18 @@ class TwoFactorAuth {
             return ['success' => false, 'message' => '验证码不正确'];
         }
 
-        $backup_codes = $this->generateBackupCodes();
+        $backupData = $this->generateBackupCodes();
 
         try {
             $stmt = $this->db->prepare(
                 "UPDATE users SET two_factor_enabled = 1, two_factor_secret = ?, backup_codes = ? WHERE id = ?"
             );
-            $stmt->execute([$secret, json_encode($backup_codes), $user_id]);
+            $stmt->execute([$secret, json_encode($backupData['hashed']), $user_id]);
 
             return [
                 'success' => true,
                 'message' => '两步验证已启用',
-                'backup_codes' => $backup_codes
+                'backup_codes' => $backupData['plain']
             ];
         } catch (Exception $e) {
             return ['success' => false, 'message' => '启用失败'];
@@ -164,12 +164,14 @@ class TwoFactorAuth {
      * 生成备用码（8个）
      */
     private function generateBackupCodes($count = 8) {
-        $codes = [];
+        $plainCodes = [];
+        $hashedCodes = [];
         for ($i = 0; $i < $count; $i++) {
             $code = strtoupper(bin2hex(random_bytes(4))) . '-' . strtoupper(bin2hex(random_bytes(4)));
-            $codes[] = hash('sha256', $code);
+            $plainCodes[] = $code;
+            $hashedCodes[] = hash('sha256', $code);
         }
-        return $codes;
+        return ['plain' => $plainCodes, 'hashed' => $hashedCodes];
     }
 
     private function getUserEmail($user_id) {

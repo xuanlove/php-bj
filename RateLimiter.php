@@ -67,7 +67,17 @@ class RateLimiter {
             if ($record) {
                 $requestsInWindow = $record['request_count'];
                 $resetTime = $record['window_start'] + $window;
-                
+
+                // 窗口已过期：创建新窗口记录而非继续累加旧记录
+                if ($now >= $resetTime) {
+                    $this->createRecord($identifier, $type, $now);
+                    return [
+                        'allowed' => true,
+                        'remaining' => $limit - 1,
+                        'reset' => $now + $window
+                    ];
+                }
+
                 if ($requestsInWindow >= $limit) {
                     return [
                         'allowed' => false,
@@ -76,7 +86,7 @@ class RateLimiter {
                         'retry_after' => $resetTime - $now
                     ];
                 }
-                
+
                 // 更新计数
                 $this->increment($identifier, $type);
                 

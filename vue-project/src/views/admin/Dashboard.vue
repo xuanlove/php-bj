@@ -11,13 +11,16 @@
     </div>
 
     <div class="stats-cards">
-      <div class="stat-card"><div class="stat-value">{{ stats.total_users || '...' }}</div><div class="stat-label">用户数</div></div>
-      <div class="stat-card"><div class="stat-value">{{ stats.total_notes || '...' }}</div><div class="stat-label">笔记数</div></div>
-      <div class="stat-card"><div class="stat-value">{{ stats.total_attachments || '...' }}</div><div class="stat-label">附件数</div></div>
-      <div class="stat-card"><div class="stat-value">{{ stats.ai_interactions || '...' }}</div><div class="stat-label">AI调用</div></div>
+      <div class="stat-card"><div class="stat-value"><div v-if="loading" class="spinner"></div><template v-else>{{ stats.total_users || 0 }}</template></div><div class="stat-label">用户数</div></div>
+      <div class="stat-card"><div class="stat-value"><div v-if="loading" class="spinner"></div><template v-else>{{ stats.total_notes || 0 }}</template></div><div class="stat-label">笔记数</div></div>
+      <div class="stat-card"><div class="stat-value"><div v-if="loading" class="spinner"></div><template v-else>{{ stats.total_attachments || 0 }}</template></div><div class="stat-label">附件数</div></div>
+      <div class="stat-card"><div class="stat-value"><div v-if="loading" class="spinner"></div><template v-else>{{ stats.ai_interactions || 0 }}</template></div><div class="stat-label">AI调用</div></div>
     </div>
-    <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-if="loading" class="loading"><div class="spinner"></div></div>
+    <div v-else-if="error" class="error">
+      <p>{{ error }}</p>
+      <button class="btn btn-primary" @click="loadStats">重试</button>
+    </div>
   </div>
 </template>
 <script setup>
@@ -28,8 +31,9 @@ const stats = ref({})
 const loading = ref(false)
 const error = ref('')
 
-onMounted(async () => {
+async function loadStats() {
   loading.value = true
+  error.value = ''
   try {
     const r = await adminApi.stats()
     if (r.success) stats.value = r.data
@@ -39,7 +43,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadStats)
 </script>
 <style scoped>
 .admin-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
@@ -52,4 +58,8 @@ onMounted(async () => {
 .stat-label { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
 .loading { text-align: center; padding: 40px; color: var(--text-muted); }
 .error { text-align: center; padding: 40px; color: var(--danger, #e74c3c); }
+.error p { margin: 0 0 16px; }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border-color); border-top-color: var(--accent-gold); border-radius: 50%; animation: dashboard-spin 0.8s linear infinite; }
+.loading .spinner { display: block; margin: 0 auto; width: 32px; height: 32px; }
+@keyframes dashboard-spin { to { transform: rotate(360deg); } }
 </style>

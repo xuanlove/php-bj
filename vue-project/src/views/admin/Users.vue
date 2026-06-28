@@ -11,21 +11,23 @@
     </div>
     <h2>用户管理</h2>
     <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
-    <table v-else class="table">
-      <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
-      <tbody>
-        <tr v-for="u in users" :key="u.id">
-          <td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.email }}</td>
-          <td><span class="badge" :class="u.role">{{ u.role }}</span></td>
-          <td>{{ u.status }}</td>
-          <td>{{ formatDate(u.created_at) }}</td>
-          <td>
-            <button class="btn-sm" :class="u.status === 'suspended' || u.status === 'disabled' ? 'btn-primary' : 'btn-secondary'" :disabled="togglingId === u.id" @click="toggleStatus(u)">{{ togglingId === u.id ? '处理中...' : (u.status === 'active' ? '封禁' : '解封') }}</button>
-            <button class="btn-sm btn-danger" @click="deleteUser(u.id)">删除</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else style="overflow-x:auto;">
+      <table class="table">
+        <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="u in users" :key="u.id">
+            <td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.email }}</td>
+            <td><span class="badge" :class="u.role">{{ u.role }}</span></td>
+            <td>{{ statusText[u.status] || u.status }}</td>
+            <td>{{ formatDate(u.created_at) }}</td>
+            <td>
+              <button class="btn-sm" :class="u.status === 'suspended' || u.status === 'disabled' ? 'btn-primary' : 'btn-secondary'" :disabled="togglingId === u.id" @click="toggleStatus(u)">{{ togglingId === u.id ? '处理中...' : (u.status === 'active' ? '封禁' : '解封') }}</button>
+              <button class="btn-sm btn-danger" @click="deleteUser(u.id)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 <script setup>
@@ -36,6 +38,7 @@ import dayjs from 'dayjs'
 const users = ref([])
 const loading = ref(false)
 const togglingId = ref(null)
+const statusText = { active: '正常', suspended: '已暂停', disabled: '已禁用' }
 
 onMounted(async () => {
   loading.value = true

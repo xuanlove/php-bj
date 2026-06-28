@@ -220,7 +220,8 @@ class ErrorHandler {
         ];
         
         $logFile = self::$logDir . '/security.log';
-        
+        self::rotateLog($logFile);
+
         $logEntry = json_encode($error, JSON_UNESCAPED_UNICODE);
         @file_put_contents($logFile, $logEntry . "\n", FILE_APPEND | LOCK_EX);
     }

@@ -11,19 +11,21 @@
     </div>
     <h2>笔记管理</h2>
     <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
-    <table v-else class="table">
-      <thead><tr><th>ID</th><th>标题</th><th>作者</th><th>类型</th><th>更新</th><th>操作</th></tr></thead>
-      <tbody>
-        <tr v-for="n in notes" :key="n.id">
-          <td>{{ n.id }}</td><td>{{ n.title?.substring(0, 30) || '无标题' }}</td><td>{{ n.username }}</td>
-          <td>{{ n.content_type }}</td><td>{{ formatDate(n.updated_at) }}</td>
-          <td>
-            <button class="btn-sm btn-primary" @click="router.push('/note/'+n.id)">查看</button>
-            <button class="btn-sm btn-danger" :disabled="deletingId === n.id" @click="deleteNote(n.id)">{{ deletingId === n.id ? '删除中...' : '删除' }}</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else style="overflow-x:auto;">
+      <table class="table">
+        <thead><tr><th>ID</th><th>标题</th><th>作者</th><th>类型</th><th>更新</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="n in notes" :key="n.id">
+            <td>{{ n.id }}</td><td>{{ n.title?.substring(0, 30) || '无标题' }}</td><td>{{ n.username }}</td>
+            <td>{{ n.content_type }}</td><td>{{ formatDate(n.updated_at) }}</td>
+            <td>
+              <button class="btn-sm btn-primary" @click="router.push('/note/'+n.id)">查看</button>
+              <button class="btn-sm btn-danger" :disabled="deletingId === n.id" @click="deleteNote(n.id)">{{ deletingId === n.id ? '删除中...' : '删除' }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 <script setup>

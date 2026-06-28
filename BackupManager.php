@@ -412,6 +412,9 @@ class BackupManager {
         if ($retentionCount <= 0) return 0;
 
         $files = $storage->listFiles('/');
+        // 仅对 backup_ 开头的文件应用保留策略
+        $files = array_filter($files, fn($f) => strpos($f['name'] ?? '', 'backup_') === 0);
+        $files = array_values($files);
         if (count($files) <= $retentionCount) return 0;
 
         // 按时间倒序排列，排除刚上传的最新文件

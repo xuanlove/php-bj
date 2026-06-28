@@ -19,9 +19,15 @@
       <thead><tr><th>ID</th><th>代码</th><th>状态</th><th>创建者</th><th>过期</th><th>操作</th></tr></thead>
       <tbody>
         <tr v-for="c in codes" :key="c.id">
-          <td>{{ c.id }}</td><td style="font-family:monospace">{{ c.code?.substring(0, 16) }}...</td>
+          <td>{{ c.id }}</td>
+          <td style="font-family:monospace">
+            {{ c.code?.substring(0, 16) }}...
+            <button class="icon-btn" @click="copyCode(c.code)" :title="'复制'">
+              <i class="fas fa-copy"></i>
+            </button>
+          </td>
           <td><span class="badge" :class="c.status">{{ c.status }}</span></td>
-          <td>{{ c.created_by }}</td><td>{{ c.expires_at || '永久' }}</td>
+          <td>{{ c.created_by }}</td><td>{{ formatTime(c.expires_at) || '永久' }}</td>
           <td><button class="btn-sm btn-danger" @click="deleteCode(c.id)">删除</button></td>
         </tr>
       </tbody>
@@ -31,10 +37,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api'
+import dayjs from 'dayjs'
 
 const codes = ref([])
 const loading = ref(false)
 const generating = ref(false)
+
+// 格式化过期时间
+const formatTime = (t) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : ''
 
 onMounted(async () => {
   loading.value = true
@@ -42,6 +52,13 @@ onMounted(async () => {
   if (r.success) codes.value = r.data?.codes || r.data || []
   loading.value = false
 })
+
+async function copyCode(code) {
+  try {
+    await navigator.clipboard.writeText(code)
+    alert('已复制')
+  } catch (e) { alert('复制失败') }
+}
 
 async function generateCodes() {
   generating.value = true
@@ -79,4 +96,6 @@ h2 { font-size: 20px; margin-bottom: 20px; }
 .badge.used { background: var(--hover-bg); color: var(--text-muted); }
 .badge.expired { background: var(--danger); color: white; }
 .btn-sm { padding: 4px 10px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
+.icon-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; margin-left: 8px; border-radius: 4px; }
+.icon-btn:hover { color: var(--accent-gold); background: var(--hover-bg); }
 </style>

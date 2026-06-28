@@ -20,9 +20,30 @@
 
     <div class="section">
       <h3>修改密码</h3>
-      <div class="form-group"><label>当前密码</label><input type="password" v-model="pw.old" class="input"></div>
-      <div class="form-group"><label>新密码</label><input type="password" v-model="pw.new" class="input"></div>
-      <div class="form-group"><label>确认新密码</label><input type="password" v-model="pw.confirm" class="input"></div>
+      <div class="form-group"><label>当前密码</label>
+        <div class="password-field">
+          <input :type="showOldPassword ? 'text' : 'password'" v-model="pw.old" class="input">
+          <button type="button" class="password-toggle" @click="showOldPassword = !showOldPassword" :aria-label="showOldPassword ? '隐藏密码' : '显示密码'">
+            <i :class="showOldPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+        </div>
+      </div>
+      <div class="form-group"><label>新密码</label>
+        <div class="password-field">
+          <input :type="showNewPassword ? 'text' : 'password'" v-model="pw.new" class="input">
+          <button type="button" class="password-toggle" @click="showNewPassword = !showNewPassword" :aria-label="showNewPassword ? '隐藏密码' : '显示密码'">
+            <i :class="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+        </div>
+      </div>
+      <div class="form-group"><label>确认新密码</label>
+        <div class="password-field">
+          <input :type="showConfirmPassword ? 'text' : 'password'" v-model="pw.confirm" class="input">
+          <button type="button" class="password-toggle" @click="showConfirmPassword = !showConfirmPassword" :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'">
+            <i :class="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+          </button>
+        </div>
+      </div>
       <button class="btn btn-secondary" @click="changePw" :disabled="changing">{{ changing ? '修改中...' : '修改密码' }}</button>
     </div>
 
@@ -48,6 +69,9 @@ const saving = ref(false)
 const changing = ref(false)
 const twoFactorEnabled = ref(false)
 const twofaLoading = ref(false)
+const showOldPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmPassword = ref(false)
 
 const form = ref({ username: '', email: '', full_name: '' })
 const pw = ref({ old: '', new: '', confirm: '' })
@@ -121,4 +145,9 @@ async function disable2FA() {
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; }
 .settings-actions { display: flex; gap: 12px; }
+.password-field { position: relative; }
+.password-toggle {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--text-secondary);
+}
 </style>

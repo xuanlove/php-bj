@@ -8,7 +8,7 @@
         <button class="btn btn-ghost" @click="showAttachments = !showAttachments" title="附件"><i class="fas fa-paperclip"></i></button>
         <button class="btn btn-ghost" @click="showComments = !showComments" title="评论"><i class="fas fa-comment"></i></button>
         <button class="btn btn-ghost" @click="showAIPanel = !showAIPanel"><i class="fas fa-robot"></i>AI</button>
-        <button class="btn btn-ghost" @click="showMoreMenu = !showMoreMenu"><i class="fas fa-ellipsis-h"></i></button>
+        <button class="btn btn-ghost dropdown-trigger" @click="showMoreMenu = !showMoreMenu"><i class="fas fa-ellipsis-h"></i></button>
         <button class="btn btn-primary" @click="saveNote" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
       </div>
     </div>
@@ -47,6 +47,68 @@
           <div v-if="aiLoading" class="ai-loading">AI处理中...</div>
         </div>
       </aside>
+    </div>
+
+    <!-- 版本历史面板 -->
+    <div v-if="showVersionPanel" class="side-panel">
+      <div class="panel-header">
+        <h3>版本历史</h3>
+        <button class="icon-btn" @click="showVersionPanel = false">&times;</button>
+      </div>
+      <div class="panel-body">
+        <div v-if="versionsLoading" class="loading"><div class="spinner"></div></div>
+        <div v-else-if="versions.length === 0" class="empty">暂无历史版本</div>
+        <ul v-else class="version-list">
+          <li v-for="v in versions" :key="v.id" class="version-item">
+            <div class="version-info">
+              <span class="version-num">v{{ v.version_number }}</span>
+              <span class="version-time">{{ formatTime(v.created_at) }}</span>
+            </div>
+            <div class="version-desc">{{ v.change_description || '无描述' }}</div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 附件面板 -->
+    <div v-if="showAttachments" class="side-panel">
+      <div class="panel-header">
+        <h3>附件</h3>
+        <button class="icon-btn" @click="showAttachments = false">&times;</button>
+      </div>
+      <div class="panel-body">
+        <input type="file" @change="handleUpload" ref="fileInput" style="display:none">
+        <button class="btn btn-secondary" @click="$refs.fileInput.click()">上传附件</button>
+        <div v-if="attachments.length === 0" class="empty">暂无附件</div>
+        <ul v-else class="attachment-list">
+          <li v-for="a in attachments" :key="a.id" class="attachment-item">
+            <span class="attachment-name">{{ a.filename || a.original_name }}</span>
+            <button class="icon-btn" @click="deleteAttachment(a.id)">&times;</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 评论面板 -->
+    <div v-if="showComments" class="side-panel">
+      <div class="panel-header">
+        <h3>评论</h3>
+        <button class="icon-btn" @click="showComments = false">&times;</button>
+      </div>
+      <div class="panel-body">
+        <div class="comment-input">
+          <textarea v-model="newComment" placeholder="写下你的评论..."></textarea>
+          <button class="btn btn-primary" @click="addComment" :disabled="!newComment.trim()">发送</button>
+        </div>
+        <div v-if="comments.length === 0" class="empty">暂无评论</div>
+        <ul v-else class="comment-list">
+          <li v-for="c in comments" :key="c.id" class="comment-item">
+            <div class="comment-author">{{ c.username }}</div>
+            <div class="comment-content">{{ c.content }}</div>
+            <div class="comment-time">{{ formatTime(c.created_at) }}</div>
+          </li>
+        </ul>
+      </div>
     </div>
 
     <!-- 分享弹窗 -->
@@ -92,14 +154,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useNotesStore } from '@/stores/notes'
-import { aiApi, shareApi } from '@/api'
+import { useUserStore } from '@/stores/user'
+import { aiApi, shareApi, versionApi, attachmentsApi, commentsApi } from '@/api'
+import dayjs from 'dayjs'
 
 const route = useRoute()
 const router = useRouter()
 const notesStore = useNotesStore()
+const userStore = useUserStore()
+// 自动保存开关：跟随用户设置（默认开启）
+const autoSaveEnabled = computed(() => userStore.settings?.auto_save !== false)
 const noteId = ref(route.params.id)
 const title = ref('')
 const content = ref('')
@@ -121,6 +188,13 @@ const shareAllowDownload = ref(true)
 const shareUrl = ref('')
 const sharing = ref(false)
 let autoTimer = null
+// 面板相关状态
+const versions = ref([])
+const versionsLoading = ref(false)
+const attachments = ref([])
+const comments = ref([])
+const newComment = ref('')
+const fileInput = ref(null)
 
 async function loadNote() {
   if (noteId.value !== 'new') {
@@ -141,15 +215,35 @@ onMounted(async () => {
 })
 
 watch(() => route.params.id, (newId) => {
+  // 切换笔记时清除尚未触发的自动保存定时器，避免保存到错误的笔记
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
   if (newId) {
     noteId.value = newId
     loadNote()
   }
 })
 
+// 面板展开时按需加载对应数据
+watch([showVersionPanel, showAttachments, showComments], ([v, a, c]) => {
+  if (v) loadVersions()
+  if (a) loadAttachments()
+  if (c) loadComments()
+})
+
 onUnmounted(() => {
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
 })
+
+// 点击外部关闭更多菜单
+function handleClickOutside(e) {
+  const menu = document.querySelector('.dropdown-menu')
+  const trigger = document.querySelector('.dropdown-trigger')
+  if (showMoreMenu.value && menu && !menu.contains(e.target) && !trigger?.contains(e.target)) {
+    showMoreMenu.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
 async function saveNote() {
   if (saving.value) return
@@ -167,6 +261,8 @@ async function saveNote() {
 }
 
 function autoSave() {
+  // 用户在设置中关闭自动保存时，跳过定时保存
+  if (!autoSaveEnabled.value) return
   if (autoTimer) clearTimeout(autoTimer)
   autoTimer = setTimeout(saveNote, 3000)
 }
@@ -225,6 +321,70 @@ async function deleteNote() {
   }
   showMoreMenu.value = false
 }
+
+// 时间格式化
+function formatTime(t) {
+  return t ? dayjs(t).format('YYYY-MM-DD HH:mm') : ''
+}
+
+// 加载版本历史
+async function loadVersions() {
+  if (!noteId.value || noteId.value === 'new') return
+  versionsLoading.value = true
+  try {
+    const r = await versionApi.list(noteId.value)
+    if (r.success) versions.value = r.versions || r.data || []
+  } finally { versionsLoading.value = false }
+}
+
+// 加载附件列表
+async function loadAttachments() {
+  if (!noteId.value || noteId.value === 'new') return
+  const r = await attachmentsApi.list(noteId.value)
+  if (r.success) attachments.value = r.attachments || r.data || []
+}
+
+// 加载评论列表
+async function loadComments() {
+  if (!noteId.value || noteId.value === 'new') return
+  const r = await commentsApi.list(noteId.value)
+  if (r.success) comments.value = r.comments || r.data || []
+}
+
+// 上传附件
+async function handleUpload(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  try {
+    const r = await attachmentsApi.upload(noteId.value, file)
+    if (r.success) {
+      await loadAttachments()
+      e.target.value = ''
+    } else {
+      alert(r.message || '上传失败')
+    }
+  } catch (err) { /* 忽略网络错误 */ }
+}
+
+// 删除附件
+async function deleteAttachment(id) {
+  if (!confirm('确定删除此附件？')) return
+  const r = await attachmentsApi.delete(id)
+  if (r.success) await loadAttachments()
+  else alert(r.message || '删除失败')
+}
+
+// 添加评论
+async function addComment() {
+  if (!newComment.value.trim()) return
+  const r = await commentsApi.add(noteId.value, newComment.value)
+  if (r.success) {
+    newComment.value = ''
+    await loadComments()
+  } else {
+    alert(r.message || '评论失败')
+  }
+}
 </script>
 
 <style scoped>
@@ -274,4 +434,37 @@ async function deleteNote() {
 .btn-ghost:hover { background: var(--hover-bg); color: var(--text-primary); }
 .btn-primary { padding: 8px 16px; background: var(--accent-gold); border: none; border-radius: 6px; color: var(--primary-bg); cursor: pointer; font-size: 14px; font-weight: 500; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 侧边面板（版本/附件/评论） */
+.side-panel { margin: 16px 24px; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
+.panel-header h3 { font-size: 16px; margin: 0; }
+.panel-body { padding: 16px; }
+.icon-btn { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; line-height: 1; }
+.icon-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+.btn-secondary { padding: 8px 16px; background: var(--hover-bg); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 14px; margin-bottom: 12px; }
+.btn-secondary:hover { border-color: var(--accent-gold); }
+.loading { display: flex; justify-content: center; padding: 24px; }
+.spinner { width: 24px; height: 24px; border: 2px solid var(--border-color); border-top-color: var(--accent-gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { text-align: center; color: var(--text-muted); padding: 24px; font-size: 14px; }
+.version-list, .attachment-list, .comment-list { list-style: none; padding: 0; margin: 0; }
+.version-item { padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+.version-item:last-child { border-bottom: none; }
+.version-info { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
+.version-num { font-weight: 600; color: var(--accent-gold); font-size: 13px; }
+.version-time { color: var(--text-muted); font-size: 12px; }
+.version-desc { color: var(--text-secondary); font-size: 13px; }
+.attachment-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+.attachment-item:last-child { border-bottom: none; }
+.attachment-name { color: var(--text-primary); font-size: 14px; }
+.comment-input { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.comment-input textarea { width: 100%; padding: 8px 12px; background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; resize: vertical; min-height: 60px; box-sizing: border-box; }
+.comment-input textarea:focus { outline: none; border-color: var(--accent-gold); }
+.comment-input .btn-primary { align-self: flex-end; }
+.comment-item { padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+.comment-item:last-child { border-bottom: none; }
+.comment-author { font-weight: 600; color: var(--text-primary); font-size: 14px; margin-bottom: 4px; }
+.comment-content { color: var(--text-secondary); font-size: 14px; margin-bottom: 4px; white-space: pre-wrap; }
+.comment-time { color: var(--text-muted); font-size: 12px; }
 </style>

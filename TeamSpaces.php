@@ -111,7 +111,7 @@ class TeamSpaces {
              FROM team_members tm
              JOIN users u ON tm.user_id = u.id
              WHERE tm.team_id = ?
-             ORDER BY tm.role DESC, tm.joined_at ASC"
+             ORDER BY FIELD(tm.role, 'owner', 'admin', 'member'), tm.joined_at ASC"
         );
         $stmt->execute([$team_id]);
         $team['members'] = $stmt->fetchAll();
@@ -314,6 +314,15 @@ class TeamSpaces {
         
         $this->db->beginTransaction();
         try {
+            // 校验当前用户邮箱与邀请邮箱一致
+            $currentUser = $this->db->prepare("SELECT email FROM users WHERE id = ?");
+            $currentUser->execute([$user_id]);
+            $userEmail = $currentUser->fetchColumn();
+            if (!$userEmail || strcasecmp($userEmail, $invite['email']) !== 0) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                return ['success' => false, 'message' => '此邀请不属于当前用户邮箱'];
+            }
+
             // 添加成员
             $stmt = $this->db->prepare(
                 "INSERT INTO team_members (team_id, user_id, role, invited_by) VALUES (?, ?, ?, ?)"
@@ -345,16 +354,24 @@ class TeamSpaces {
         }
         
         $name = sanitizeInput($data['name'] ?? '');
-        $parent_id = isset($data['parent_id']) ? intval($data['parent_id']) : null;
-        
+
         if (empty($name)) {
             return ['success' => false, 'message' => '文件夹名称不能为空'];
         }
-        
+
+        $parentId = !empty($data['parent_id']) ? intval($data['parent_id']) : null;
+        if ($parentId !== null) {
+            $parentCheck = $this->db->prepare("SELECT id FROM team_folders WHERE id = ? AND team_id = ?");
+            $parentCheck->execute([$parentId, $team_id]);
+            if (!$parentCheck->fetch()) {
+                return ['success' => false, 'message' => '父文件夹不属于此团队'];
+            }
+        }
+
         $stmt = $this->db->prepare(
             "INSERT INTO team_folders (team_id, name, parent_id, created_by) VALUES (?, ?, ?, ?)"
         );
-        $stmt->execute([$team_id, $name, $parent_id, $user_id]);
+        $stmt->execute([$team_id, $name, $parentId, $user_id]);
         
         return [
             'success' => true,

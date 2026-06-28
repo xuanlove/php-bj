@@ -11,7 +11,7 @@
       <button class="btn btn-primary" @click="createNote">创建第一篇笔记</button>
     </div>
     <div v-else class="notes-grid">
-      <div v-for="note in notes" :key="note.id" class="note-card" @click="openNote(note.id)">
+      <div v-for="note in notes" :key="note.id" class="note-card" tabindex="0" role="button" @click="openNote(note.id)" @keydown.enter="openNote(note.id)">
         <h3>{{ note.title || '无标题' }}</h3>
         <p>{{ note.content?.substring(0, 100) || '' }}</p>
         <div class="note-meta">{{ formatDate(note.updated_at) }}</div>
@@ -74,6 +74,7 @@ function openNote(id) { router.push(`/note/${id}`) }
 .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
 .note-card { background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.2s; }
 .note-card:hover { border-color: var(--accent-gold); transform: translateY(-2px); }
+.note-card:focus { outline: none; border-color: var(--accent-gold); box-shadow: 0 0 0 2px var(--accent-gold); }
 .note-card h3 { font-size: 16px; margin-bottom: 8px; }
 .note-card p { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-meta { font-size: 12px; color: var(--text-muted); margin-top: 12px; }

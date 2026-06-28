@@ -12,15 +12,36 @@
         </div>
         <form @submit.prevent="handleLogin" v-if="tab === 'login'">
           <div class="form-group"><label>用户名</label><input v-model="form.username" class="input" placeholder="请输入用户名" required></div>
-          <div class="form-group"><label>密码</label><input v-model="form.password" type="password" class="input" placeholder="请输入密码" required></div>
+          <div class="form-group"><label>密码</label>
+            <div class="password-field">
+              <input v-model="form.password" :type="showPassword ? 'text' : 'password'" class="input" placeholder="请输入密码" required>
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? '隐藏密码' : '显示密码'">
+                <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+              </button>
+            </div>
+          </div>
           <button type="submit" class="btn btn-primary btn-block" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
           <div class="error" v-if="error">{{ error }}</div>
         </form>
         <form @submit.prevent="handleRegister" v-if="tab === 'register'">
           <div class="form-group"><label>用户名</label><input v-model="reg.username" class="input" placeholder="3-20位字母数字下划线" required></div>
           <div class="form-group"><label>邮箱</label><input v-model="reg.email" type="email" class="input" placeholder="请输入邮箱" required></div>
-          <div class="form-group"><label>密码</label><input v-model="reg.password" type="password" class="input" placeholder="至少8位" required></div>
-          <div class="form-group"><label>确认密码</label><input v-model="reg.confirm" type="password" class="input" placeholder="请再次输入密码" required></div>
+          <div class="form-group"><label>密码</label>
+            <div class="password-field">
+              <input v-model="reg.password" :type="showPassword ? 'text' : 'password'" class="input" placeholder="至少8位" required>
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword" :aria-label="showPassword ? '隐藏密码' : '显示密码'">
+                <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group"><label>确认密码</label>
+            <div class="password-field">
+              <input v-model="reg.confirm" :type="showConfirmPassword ? 'text' : 'password'" class="input" placeholder="请再次输入密码" required>
+              <button type="button" class="password-toggle" @click="showConfirmPassword = !showConfirmPassword" :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'">
+                <i :class="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+              </button>
+            </div>
+          </div>
           <div class="form-group"><label>邀请码</label><input v-model="reg.invitation_code" class="input" placeholder="如有邀请码请填写"></div>
           <button type="submit" class="btn btn-primary btn-block" :disabled="loading">{{ loading ? '注册中...' : '注册' }}</button>
           <div class="error" v-if="error">{{ error }}</div>
@@ -32,15 +53,18 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const tab = ref('login')
 const loading = ref(false)
 const error = ref('')
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
 const form = ref({ username: '', password: '' })
 const reg = ref({ username: '', email: '', password: '', confirm: '', invitation_code: '' })
 
@@ -48,7 +72,7 @@ async function handleLogin() {
   loading.value = true; error.value = ''
   const r = await userStore.login(form.value)
   loading.value = false
-  if (r.success) router.push('/')
+  if (r.success) router.push(route.query.redirect || '/')
   else error.value = r.message
 }
 
@@ -76,4 +100,9 @@ async function handleRegister() {
 .form-group label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; }
 .btn-block { width: 100%; padding: 14px; margin-top: 10px; }
 .error { margin-top: 16px; padding: 12px; background: rgba(244,67,54,0.1); border: 1px solid var(--danger); border-radius: 6px; color: var(--danger); text-align: center; }
+.password-field { position: relative; }
+.password-toggle {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--text-secondary);
+}
 </style>

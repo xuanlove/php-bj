@@ -1,7 +1,9 @@
 <template>
   <div class="page">
     <h1>标签管理</h1>
-    <div class="tags-grid">
+    <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
+    <div v-else-if="tags.length === 0" class="empty">暂无标签</div>
+    <div v-else class="tags-grid">
       <div v-for="tag in tags" :key="tag.id" class="tag-card" @click="router.push({ path: '/', query: { search: '#' + tag.name } })">
         <i class="fas fa-tag"></i>
         <span class="tag-name">{{ tag.name }}</span>
@@ -17,10 +19,16 @@ import { tagsApi } from '@/api'
 
 const router = useRouter()
 const tags = ref([])
+const loading = ref(false)
 
 onMounted(async () => {
-  const r = await tagsApi.list()
-  if (r.success) tags.value = r.tags || []
+  loading.value = true
+  try {
+    const r = await tagsApi.list()
+    if (r.success) tags.value = r.tags || []
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 <style scoped>
@@ -32,4 +40,5 @@ onMounted(async () => {
 .tag-card i { font-size: 24px; color: var(--accent-gold); margin-bottom: 8px; }
 .tag-name { display: block; font-weight: 500; margin-bottom: 4px; }
 .tag-card small { font-size: 12px; color: var(--text-muted); }
+.loading, .empty { text-align: center; padding: 40px; color: var(--text-muted); }
 </style>

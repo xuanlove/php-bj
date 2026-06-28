@@ -21,6 +21,9 @@
     <div v-else-if="note" class="note-content">
       <h2>{{ note.title }}</h2>
       <div class="note-body">{{ note.content }}</div>
+      <div v-if="shareInfo?.allow_download" class="note-actions">
+        <button class="btn btn-primary" @click="download">下载</button>
+      </div>
       <div class="note-footer">
         <span>由 {{ shareInfo?.username || '未知用户' }} 分享</span>
         <span v-if="shareInfo?.view_count">浏览 {{ shareInfo.view_count }} 次</span>
@@ -31,14 +34,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { shareApi } from '@/api'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 
 const route = useRoute()
-const token = route.params.token
+// token 改为响应式，组件复用时（路由参数变化）可自动重新加载
+const token = computed(() => route.params.token)
 const loading = ref(true)
 const error = ref('')
 const needPassword = ref(false)
@@ -47,9 +51,15 @@ const pwError = ref('')
 const note = ref(null)
 const shareInfo = ref(null)
 
-onMounted(async () => {
+// 加载分享信息（含密码校验逻辑），供 onMounted 与 token 变化时复用
+async function loadShare() {
+  loading.value = true
+  error.value = ''
+  needPassword.value = false
+  note.value = null
+  shareInfo.value = null
   try {
-    const r = await shareApi.get(token)
+    const r = await shareApi.get(token.value)
     if (!r.success) {
       error.value = r.message || '分享不存在或已过期'
     } else if (r.share?.expired) {
@@ -65,10 +75,19 @@ onMounted(async () => {
     error.value = '加载失败'
   }
   loading.value = false
+}
+
+onMounted(() => {
+  loadShare()
+})
+
+// 路由参数 token 变化时重新加载（组件复用场景）
+watch(() => route.params.token, (newToken, oldToken) => {
+  if (newToken && newToken !== oldToken) loadShare()
 })
 
 async function loadContent(pwd) {
-  const r = await shareApi.getContent(token, pwd || null)
+  const r = await shareApi.getContent(token.value, pwd || null)
   if (r.success) {
     note.value = r.content
     needPassword.value = false
@@ -81,7 +100,7 @@ async function loadContent(pwd) {
 
 async function verifyPassword() {
   pwError.value = ''
-  const r = await shareApi.getContent(token, password.value)
+  const r = await shareApi.getContent(token.value, password.value)
   if (r.success) {
     note.value = r.content
     needPassword.value = false
@@ -91,6 +110,28 @@ async function verifyPassword() {
 }
 
 function formatDate(d) { return dayjs(d).format('YYYY-MM-DD HH:mm') }
+
+async function download() {
+  try {
+    // 调用 share_content 接口获取内容并触发下载
+    const r = await shareApi.getContent(token.value, password.value || null)
+    if (!r.success) {
+      alert(r.message || '下载失败')
+      return
+    }
+    const content = r.content?.content || note.value?.content || ''
+    const title = r.content?.title || note.value?.title || '分享笔记'
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${title}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('下载失败')
+  }
+}
 </script>
 
 <style scoped>
@@ -106,5 +147,6 @@ function formatDate(d) { return dayjs(d).format('YYYY-MM-DD HH:mm') }
 .password-form .error { color: var(--danger); margin-bottom: 12px; }
 .note-content h2 { font-size: 24px; margin-bottom: 20px; }
 .note-body { font-size: 16px; line-height: 1.8; white-space: pre-wrap; }
+.note-actions { margin-top: 24px; }
 .note-footer { display: flex; gap: 20px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted); }
 </style>

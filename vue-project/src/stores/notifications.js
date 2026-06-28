@@ -43,11 +43,13 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   async function deleteNotification(id) {
     const n = notifications.value.find(x => x.id === id)
-    if (n && !n.is_read) {
-      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    const r = await notificationsApi.delete(id)
+    if (r.success) {
+      if (n && !n.is_read) {
+        unreadCount.value = Math.max(0, unreadCount.value - 1)
+      }
+      notifications.value = notifications.value.filter(x => x.id !== id)
     }
-    await notificationsApi.delete(id)
-    notifications.value = notifications.value.filter(x => x.id !== id)
   }
 
   async function clearAll() {

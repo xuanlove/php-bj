@@ -123,28 +123,25 @@ onMounted(async () => {
   fetchApiKeys()
 })
 
-function applyThemeToDOM(t) {
-  if (t === 'auto') {
-    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches
-    t = isLight ? 'light' : 'dark'
+function applyThemeToDOM(theme) {
+  // 移除旧主题 class
+  document.body.classList.remove('light-theme', 'theme-default', 'theme-forest', 'theme-ocean', 'theme-sunset', 'theme-midnight', 'theme-minimal')
+
+  // 处理 auto：根据系统偏好决定明暗
+  let actualTheme = theme
+  if (theme === 'auto') {
+    actualTheme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   }
-  document.documentElement.setAttribute('data-theme', t)
-  if (t === 'light') {
-    document.documentElement.style.setProperty('--primary-bg', '#ffffff')
-    document.documentElement.style.setProperty('--secondary-bg', '#f5f5f5')
-    document.documentElement.style.setProperty('--hover-bg', '#e0e0e0')
-    document.documentElement.style.setProperty('--border-color', '#d0d0d0')
-    document.documentElement.style.setProperty('--text-primary', '#333333')
-    document.documentElement.style.setProperty('--text-secondary', '#666666')
-    document.documentElement.style.setProperty('--text-muted', '#999999')
-  } else {
-    document.documentElement.style.setProperty('--primary-bg', '#0f0e0e')
-    document.documentElement.style.setProperty('--secondary-bg', '#1a1919')
-    document.documentElement.style.setProperty('--hover-bg', '#2d2d2d')
-    document.documentElement.style.setProperty('--border-color', '#3a3a3a')
-    document.documentElement.style.setProperty('--text-primary', '#e8e6e3')
-    document.documentElement.style.setProperty('--text-secondary', '#a8a5a0')
-    document.documentElement.style.setProperty('--text-muted', '#6b6b6b')
+
+  // 应用明暗模式（theme.css 用 body.light-theme 区分）
+  if (actualTheme === 'light') {
+    document.body.classList.add('light-theme')
+  }
+  // dark 模式不添加 light-theme（theme.css 默认深色）
+
+  // 应用具体主题（如果非 default，加载对应 theme.css）
+  if (theme !== 'default' && theme !== 'auto' && theme !== 'light' && theme !== 'dark') {
+    document.body.classList.add('theme-' + theme)
   }
 }
 

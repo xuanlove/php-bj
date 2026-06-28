@@ -1,6 +1,6 @@
 <template>
   <div class="layout">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-header" @click="router.push('/')">
         <h2>PHP笔记</h2>
       </div>
@@ -15,52 +15,52 @@
 
       <nav class="sidebar-nav">
         <div class="nav-section">
-          <div class="nav-item" :class="{ active: isActive('/') }" @click="router.push('/')">
+          <div class="nav-item" :class="{ active: isActive('/') }" tabindex="0" role="button" @click="router.push('/')" @keydown.enter="router.push('/')">
             <i class="fas fa-sticky-note"></i><span>所有笔记</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/favorites') }" @click="router.push('/favorites')">
+          <div class="nav-item" :class="{ active: isActive('/favorites') }" tabindex="0" role="button" @click="router.push('/favorites')" @keydown.enter="router.push('/favorites')">
             <i class="fas fa-star"></i><span>收藏夹</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/archived') }" @click="router.push('/archived')">
+          <div class="nav-item" :class="{ active: isActive('/archived') }" tabindex="0" role="button" @click="router.push('/archived')" @keydown.enter="router.push('/archived')">
             <i class="fas fa-archive"></i><span>归档</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/tags') }" @click="router.push('/tags')">
+          <div class="nav-item" :class="{ active: isActive('/tags') }" tabindex="0" role="button" @click="router.push('/tags')" @keydown.enter="router.push('/tags')">
             <i class="fas fa-tags"></i><span>标签</span>
           </div>
         </div>
 
         <div class="nav-section">
           <div class="nav-section-title">管理</div>
-          <div class="nav-item" :class="{ active: isActive('/recycle') }" @click="router.push('/recycle')">
+          <div class="nav-item" :class="{ active: isActive('/recycle') }" tabindex="0" role="button" @click="router.push('/recycle')" @keydown.enter="router.push('/recycle')">
             <i class="fas fa-trash-alt"></i><span>回收站</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/shares') }" @click="router.push('/shares')">
+          <div class="nav-item" :class="{ active: isActive('/shares') }" tabindex="0" role="button" @click="router.push('/shares')" @keydown.enter="router.push('/shares')">
             <i class="fas fa-share-alt"></i><span>我的分享</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/templates') }" @click="router.push('/templates')">
+          <div class="nav-item" :class="{ active: isActive('/templates') }" tabindex="0" role="button" @click="router.push('/templates')" @keydown.enter="router.push('/templates')">
             <i class="fas fa-copy"></i><span>模板</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/teams') }" @click="router.push('/teams')">
+          <div class="nav-item" :class="{ active: isActive('/teams') }" tabindex="0" role="button" @click="router.push('/teams')" @keydown.enter="router.push('/teams')">
             <i class="fas fa-users"></i><span>团队</span>
           </div>
         </div>
 
         <div class="nav-section">
           <div class="nav-section-title">账户</div>
-          <div class="nav-item" :class="{ active: isActive('/settings') }" @click="router.push('/settings')">
+          <div class="nav-item" :class="{ active: isActive('/settings') }" tabindex="0" role="button" @click="router.push('/settings')" @keydown.enter="router.push('/settings')">
             <i class="fas fa-cog"></i><span>设置</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/login-log') }" @click="router.push('/login-log')">
+          <div class="nav-item" :class="{ active: isActive('/login-log') }" tabindex="0" role="button" @click="router.push('/login-log')" @keydown.enter="router.push('/login-log')">
             <i class="fas fa-sign-in-alt"></i><span>登录日志</span>
           </div>
-          <div class="nav-item" :class="{ active: isActive('/profile') }" @click="router.push('/profile')">
+          <div class="nav-item" :class="{ active: isActive('/profile') }" tabindex="0" role="button" @click="router.push('/profile')" @keydown.enter="router.push('/profile')">
             <i class="fas fa-user"></i><span>个人资料</span>
           </div>
         </div>
 
         <div class="nav-section" v-if="isAdmin">
           <div class="nav-section-title">系统</div>
-          <div class="nav-item" :class="{ active: isActive('/admin') }" @click="router.push('/admin')">
+          <div class="nav-item" :class="{ active: isActive('/admin') }" tabindex="0" role="button" @click="router.push('/admin')" @keydown.enter="router.push('/admin')">
             <i class="fas fa-cogs"></i><span>管理后台</span>
           </div>
         </div>
@@ -73,24 +73,30 @@
       </div>
     </aside>
 
+    <div class="sidebar-overlay" :class="{ show: sidebarOpen }" @click="sidebarOpen = false"></div>
+
     <main class="main-content">
       <header class="top-bar">
+        <button class="mobile-menu-toggle" @click="sidebarOpen = !sidebarOpen">
+          <i class="fas fa-bars"></i>
+        </button>
         <div class="search-box">
           <i class="fas fa-search"></i>
           <input
             type="text"
             v-model="searchQuery"
             placeholder="搜索笔记..."
+            aria-label="搜索笔记"
             @keyup.enter="handleSearch"
           >
         </div>
 
         <div class="top-bar-actions">
-          <button class="icon-btn" @click="notificationsStore.fetchUnreadCount(); showNotifications = !showNotifications">
+          <button class="icon-btn" aria-label="通知" @click="notificationsStore.fetchUnreadCount(); showNotifications = !showNotifications">
             <i class="fas fa-bell"></i>
-            <span class="badge" v-if="unreadCount > 0">{{ unreadCount }}</span>
+            <span class="badge" v-if="unreadCount > 0">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
           </button>
-          <button class="btn btn-primary" @click="createNote">
+          <button class="btn btn-primary" :disabled="creating" @click="createNote">
             <i class="fas fa-plus"></i>新建
           </button>
         </div>
@@ -106,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
@@ -125,11 +131,18 @@ const { unreadCount } = storeToRefs(notificationsStore)
 
 const searchQuery = ref('')
 const showNotifications = ref(false)
+const sidebarOpen = ref(false)
+const creating = ref(false)
 
 const userInitials = computed(() => user.value?.username?.slice(0, 2).toUpperCase() || '?')
 
 onMounted(() => {
   notificationsStore.fetchUnreadCount()
+})
+
+// 路由变化时关闭移动端侧边栏
+watch(() => route.path, () => {
+  sidebarOpen.value = false
 })
 
 function isActive(path) {
@@ -138,13 +151,18 @@ function isActive(path) {
 
 function handleSearch() {
   if (searchQuery.value.trim()) {
-    router.push({ query: { search: searchQuery.value } })
+    router.push({ path: '/', query: { search: searchQuery.value } })
   }
 }
 
 async function createNote() {
-  const r = await notesStore.createNote({ title: '新建笔记', content: '' })
-  if (r.success) router.push(`/note/${r.note_id}`)
+  creating.value = true
+  try {
+    const r = await notesStore.createNote({ title: '新建笔记', content: '' })
+    if (r.success) router.push(`/note/${r.note_id}`)
+  } finally {
+    creating.value = false
+  }
 }
 
 async function handleLogout() {
@@ -180,6 +198,7 @@ async function handleLogout() {
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s;
   i { width: 20px; text-align: center; }
   &:hover { background: var(--hover-bg); color: var(--text-primary); }
+  &:focus { outline: none; background: var(--hover-bg); color: var(--text-primary); box-shadow: 0 0 0 2px var(--accent-gold); }
   &.active { background: var(--hover-bg); color: var(--accent-gold); }
 }
 
@@ -190,7 +209,7 @@ async function handleLogout() {
 
 .top-bar { height: 60px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; background: var(--secondary-bg); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 50; }
 
-.search-box { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 8px; width: 400px;
+.search-box { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 8px; max-width: 400px; width: 100%;
   i { color: var(--text-muted); }
   input { flex: 1; background: none; border: none; outline: none; color: var(--text-primary); &::placeholder { color: var(--text-muted); } }
 }
@@ -203,4 +222,52 @@ async function handleLogout() {
 }
 
 .content-area { flex: 1; padding: 24px; overflow-y: auto; }
+
+// 移动端菜单切换按钮
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-primary, #fff);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+}
+
+// 侧边栏遮罩
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.sidebar-overlay.show {
+  display: block;
+}
+
+// 移动端响应式适配
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1001;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main-content {
+    margin-left: 0;
+  }
+  .top-bar .search-box {
+    max-width: 200px;
+  }
+  .mobile-menu-toggle {
+    display: flex !important;
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+}
 </style>

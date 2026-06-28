@@ -12,7 +12,7 @@ export async function getCsrfToken() {
   if (!csrfToken) {
     try {
       const r = await api.get('/', { params: { action: 'get_csrf_token' } })
-      if (r.data.success) csrfToken = r.data.token
+      if (r.success) csrfToken = r.token
     } catch (e) { console.error('CSRF获取失败', e) }
   }
   return csrfToken
