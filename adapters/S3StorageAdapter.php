@@ -13,7 +13,7 @@ class S3StorageAdapter implements StorageAdapter {
     private string $bucket;
     private string $region;
     private string $prefix;       // 存储路径前缀
-    private string $sslVerify;     // 是否验证 SSL
+    private bool $sslVerify;       // 是否验证 SSL
     private $s3Client = null;
 
     public function __construct(array $config) {

@@ -24,7 +24,26 @@ if (file_exists($envFile)) {
         if (strpos($line, '=') === false) continue;
         list($key, $value) = explode('=', $line, 2);
         $key = trim($key);
+        // 支持 `export KEY=value` 前缀
+        if (strpos($key, 'export ') === 0) {
+            $key = trim(substr($key, 7));
+        }
         $value = trim($value);
+        // 去除行内注释（仅当 # 前有空格且值未被引号包裹时）
+        if ($value !== '' && $value[0] !== '"' && $value[0] !== "'") {
+            $hashPos = strpos($value, ' #');
+            if ($hashPos !== false) {
+                $value = trim(substr($value, 0, $hashPos));
+            }
+        }
+        // 去除包裹引号并处理转义
+        if ($value !== '' && ($value[0] === '"' || $value[0] === "'") && substr($value, -1) === $value[0]) {
+            $quote = $value[0];
+            $value = substr($value, 1, -1);
+            if ($quote === '"') {
+                $value = stripcslashes($value);
+            }
+        }
         if (getenv($key) === false) {
             putenv("{$key}={$value}");
             $_ENV[$key] = $value;

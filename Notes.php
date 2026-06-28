@@ -347,19 +347,26 @@ class Notes {
         
         // 获取文件信息
         $originalName = $file['name'];
-        $mimeType = $file['type'];
         $fileExt = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        
+
+        // 使用 finfo 获取真实 MIME 类型，客户端提供的 $file['type'] 可被伪造
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+        if ($mimeType === false) {
+            $mimeType = $file['type'];
+        }
+
         // 验证文件扩展名
         if (!isAllowedFileType($originalName)) {
             return ['success' => false, 'message' => '不支持的文件类型'];
         }
-        
-        // 验证MIME类型
+
+        // 验证MIME类型（基于文件内容真实类型，防止伪造 Content-Type 绕过）
         if (!isAllowedMimeType($mimeType)) {
             return ['success' => false, 'message' => '不支持的文件类型'];
         }
-        
+
         // 检查是否为可执行文件（安全风险）
         if (defined('DANGEROUS_EXTENSIONS') && in_array($fileExt, DANGEROUS_EXTENSIONS)) {
             return ['success' => false, 'message' => '禁止上传可执行文件'];

@@ -67,19 +67,29 @@ class RateLimiter {
             if ($record) {
                 $requestsInWindow = $record['request_count'];
                 $resetTime = $record['window_start'] + $window;
-                
+
+                // 窗口已过期：重置计数，创建新窗口，避免用户被持续限流
+                if ($now >= $resetTime) {
+                    $this->createRecord($identifier, $type, $now);
+                    return [
+                        'allowed' => true,
+                        'remaining' => $limit - 1,
+                        'reset' => $now + $window
+                    ];
+                }
+
                 if ($requestsInWindow >= $limit) {
                     return [
                         'allowed' => false,
                         'remaining' => 0,
                         'reset' => $resetTime,
-                        'retry_after' => $resetTime - $now
+                        'retry_after' => max(0, $resetTime - $now)
                     ];
                 }
-                
+
                 // 更新计数
                 $this->increment($identifier, $type);
-                
+
                 return [
                     'allowed' => true,
                     'remaining' => $limit - $requestsInWindow - 1,

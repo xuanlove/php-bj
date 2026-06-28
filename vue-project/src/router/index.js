@@ -5,7 +5,7 @@ import Layout from '@/components/Layout.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { guest: true } },
-  { path: '/share/:token', name: 'SharedNote', component: () => import('@/views/SharedNote.vue') },
+  { path: '/share/:token', name: 'SharedNote', component: () => import('@/views/SharedNote.vue'), meta: { public: true } },
   {
     path: '/',
     component: Layout,
@@ -47,7 +47,10 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
-  if (!userStore.user) await userStore.fetchCurrentUser()
+  // 公开路由(如分享页)不强制获取用户,避免未登录访问被 401 跳走
+  if (to.meta.requiresAuth && !userStore.user) {
+    await userStore.fetchCurrentUser()
+  }
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
   } else if (to.path.startsWith('/admin') && !userStore.isAdmin) {

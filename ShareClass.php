@@ -70,7 +70,11 @@ class Share {
             // 处理过期时间
             $expires_at = null;
             if (!empty($options['expires_in'])) {
-                $expires_at = date('Y-m-d H:i:s', strtotime("+{$options['expires_in']} seconds"));
+                $expires_in = intval($options['expires_in']);
+                if ($expires_in <= 0) {
+                    return ['success' => false, 'message' => '过期时间必须为正整数'];
+                }
+                $expires_at = date('Y-m-d H:i:s', time() + $expires_in);
             }
             
             $allow_download = isset($options['allow_download']) ? (bool)$options['allow_download'] : true;

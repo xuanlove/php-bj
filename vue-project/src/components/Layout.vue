@@ -86,7 +86,7 @@
         </div>
 
         <div class="top-bar-actions">
-          <button class="icon-btn" @click="notificationsStore.fetchUnreadCount(); showNotifications = !showNotifications">
+          <button class="icon-btn" @click="toggleNotifications">
             <i class="fas fa-bell"></i>
             <span class="badge" v-if="unreadCount > 0">{{ unreadCount }}</span>
           </button>
@@ -138,13 +138,20 @@ function isActive(path) {
 
 function handleSearch() {
   if (searchQuery.value.trim()) {
-    router.push({ query: { search: searchQuery.value } })
+    // 强制跳转到 Notes 路由,确保搜索在非 Notes 页也能生效
+    router.push({ name: 'Notes', query: { search: searchQuery.value } })
   }
+}
+
+function toggleNotifications() {
+  showNotifications.value = !showNotifications.value
+  if (showNotifications.value) notificationsStore.fetchUnreadCount()
 }
 
 async function createNote() {
   const r = await notesStore.createNote({ title: '新建笔记', content: '' })
   if (r.success) router.push(`/note/${r.note_id}`)
+  else alert(r.message || '创建失败')
 }
 
 async function handleLogout() {

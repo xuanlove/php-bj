@@ -297,8 +297,8 @@ class LoginLog {
             
             if ($response) {
                 $data = json_decode($response, true);
-                if ($data['status'] === 'success') {
-                    return $data['city'] . ', ' . $data['country'];
+                if (is_array($data) && ($data['status'] ?? '') === 'success') {
+                    return ($data['city'] ?? 'Unknown') . ', ' . ($data['country'] ?? 'Unknown');
                 }
             }
             

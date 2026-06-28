@@ -28,7 +28,7 @@ class TwoFactorAuth {
      */
     public function generateSecret($user_id) {
         $secret = $this->generateBase32Secret(20); // 160bit = 20字节 → 32字符Base32
-        $account = $this->getUserEmail($user_id);
+        $account = rawurlencode($this->getUserEmail($user_id));
         $issuer = 'NoteVault';
         $otpauth = "otpauth://totp/{$issuer}:{$account}?secret={$secret}&issuer={$issuer}&algorithm=SHA1&digits={$this->digits}&period={$this->timeStep}";
 

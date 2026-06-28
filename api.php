@@ -248,6 +248,7 @@ switch ($request) {
         break;
         
     case 'logout':
+        verifyCSRF();  // CSRF验证，防止强制登出攻击
         sendResponse($auth->logout());
         break;
         

@@ -30,21 +30,33 @@ onMounted(async () => {
 })
 
 async function restore(id) {
-  await recycleApi.restore(id)
-  notes.value = notes.value.filter(n => n.id !== id)
+  const r = await recycleApi.restore(id)
+  if (r.success) {
+    notes.value = notes.value.filter(n => n.id !== id)
+  } else {
+    alert(r.message || '恢复失败')
+  }
 }
 
 async function del(id) {
   if (confirm('确定永久删除?')) {
-    await recycleApi.permanentDelete(id)
-    notes.value = notes.value.filter(n => n.id !== id)
+    const r = await recycleApi.permanentDelete(id)
+    if (r.success) {
+      notes.value = notes.value.filter(n => n.id !== id)
+    } else {
+      alert(r.message || '删除失败')
+    }
   }
 }
 
 async function emptyAll() {
   if (confirm('清空所有?')) {
-    await recycleApi.empty()
-    notes.value = []
+    const r = await recycleApi.empty()
+    if (r.success) {
+      notes.value = []
+    } else {
+      alert(r.message || '清空失败')
+    }
   }
 }
 </script>

@@ -31,14 +31,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { shareApi } from '@/api'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 
 const route = useRoute()
-const token = route.params.token
+const token = ref(route.params.token)
 const loading = ref(true)
 const error = ref('')
 const needPassword = ref(false)
@@ -47,9 +47,14 @@ const pwError = ref('')
 const note = ref(null)
 const shareInfo = ref(null)
 
-onMounted(async () => {
+async function loadShare() {
+  loading.value = true
+  error.value = ''
+  needPassword.value = false
+  note.value = null
+  shareInfo.value = null
   try {
-    const r = await shareApi.get(token)
+    const r = await shareApi.get(token.value)
     if (!r.success) {
       error.value = r.message || '分享不存在或已过期'
     } else if (r.share?.expired) {
@@ -65,10 +70,20 @@ onMounted(async () => {
     error.value = '加载失败'
   }
   loading.value = false
+}
+
+onMounted(loadShare)
+
+// 同组件复用、切换 token 时重新加载
+watch(() => route.params.token, (newToken) => {
+  if (newToken && newToken !== token.value) {
+    token.value = newToken
+    loadShare()
+  }
 })
 
 async function loadContent(pwd) {
-  const r = await shareApi.getContent(token, pwd || null)
+  const r = await shareApi.getContent(token.value, pwd || null)
   if (r.success) {
     note.value = r.content
     needPassword.value = false
@@ -81,7 +96,7 @@ async function loadContent(pwd) {
 
 async function verifyPassword() {
   pwError.value = ''
-  const r = await shareApi.getContent(token, password.value)
+  const r = await shareApi.getContent(token.value, password.value)
   if (r.success) {
     note.value = r.content
     needPassword.value = false

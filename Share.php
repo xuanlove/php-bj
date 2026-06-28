@@ -15,7 +15,7 @@ require_once __DIR__ . '/ShareClass.php';
 // 处理下载请求（必须在任何输出之前处理）
 $token = $_GET['token'] ?? '';
 
-if (!empty($token) && (isset($_GET['download']) && $_GET['download'] == 1) || (isset($_POST['download']) && $_POST['download'] == 1)) {
+if (!empty($token) && ((isset($_GET['download']) && $_GET['download'] == 1) || (isset($_POST['download']) && $_POST['download'] == 1))) {
     $share = new Share();
     $shareInfo = $share->getShareInfo($token);
     
@@ -31,9 +31,12 @@ if (!empty($token) && (isset($_GET['download']) && $_GET['download'] == 1) || (i
         die('分享链接已过期');
     }
     
-    // 如果需要密码，验证session中是否已验证
+    // 如果需要密码，验证session中是否已验证（验证状态1小时内有效，避免公共电脑长期免密）
     if ($shareData['has_password']) {
-        if (!isset($_SESSION['share_token_verified']) || $_SESSION['share_token_verified'] !== $token) {
+        $verifiedTime = $_SESSION['share_token_verified_time'] ?? 0;
+        $verifiedExpired = (time() - $verifiedTime) > 3600;
+        if (!isset($_SESSION['share_token_verified']) || $_SESSION['share_token_verified'] !== $token || $verifiedExpired) {
+            unset($_SESSION['share_token_verified'], $_SESSION['share_token_verified_time']);
             http_response_code(403);
             die('请先在页面中验证密码');
         }
@@ -92,18 +95,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
     if ($result['success']) {
         $passwordVerified = true;
         $noteContent = $result['content'];
-        // 密码验证成功后，在session中记录验证状态
+        // 密码验证成功后，在session中记录验证状态及时间
         $_SESSION['share_token_verified'] = $token;
+        $_SESSION['share_token_verified_time'] = time();
     } else {
         $error = $result['message'];
     }
 } elseif (!$needsPassword) {
     // 不需要密码，直接获取内容
     $result = $share->getSharedContent($token);
-    
+
     if ($result['success']) {
         $noteContent = $result['content'];
         $_SESSION['share_token_verified'] = $token;
+        $_SESSION['share_token_verified_time'] = time();
     } else {
         die(htmlspecialchars($result['message']));
     }

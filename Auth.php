@@ -151,18 +151,19 @@ class Auth {
         
         if ($pwdRow && password_verify($password, $pwdRow['password'])) {
             // Session固定防护：登录成功后重新生成Session ID（保留现有session数据）
-            
+            session_regenerate_id(true);
+
             // 更新最后登录时间
             $update = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
             $update->execute([$user['id']]);
-            
+
             // 设置会话
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['logged_in'] = true;
             $_SESSION['login_time'] = time(); // 记录登录时间
-            
+
             return ['success' => true, 'message' => '登录成功', 'user' => $user];
         }
         
@@ -187,10 +188,15 @@ class Auth {
         if (!$this->isLoggedIn()) {
             return null;
         }
-        
-        $stmt = $this->db->prepare("SELECT id, username, email, full_name, avatar, role FROM users WHERE id = ?");
+
+        $stmt = $this->db->prepare("SELECT id, username, email, full_name, avatar, role FROM users WHERE id = ? AND status = 'active'");
         $stmt->execute([$_SESSION['user_id']]);
-        return $stmt->fetch();
+        $user = $stmt->fetch();
+        // 用户已被禁用时强制登出
+        if (!$user) {
+            $this->logout();
+        }
+        return $user;
     }
     
     // 生成邀请码

@@ -292,12 +292,17 @@ function installDatabase() {
         
         $encryptionKey = bin2hex(random_bytes(32));
 
+        // 引号包裹并转义含特殊字符的值，避免密码中的 # 或换行破坏 .env 格式
+        $quote = function($v) {
+            return '"' . addcslashes($v, '"\\') . '"';
+        };
+
         $envContent = "# PHP笔记系统 环境配置（由安装程序自动生成）\n"
             . "# 生成时间: " . date('Y-m-d H:i:s') . "\n\n"
             . "DB_HOST=" . $config['host'] . "\n"
             . "DB_NAME=" . $config['name'] . "\n"
             . "DB_USER=" . $config['user'] . "\n"
-            . "DB_PASS=" . $config['pass'] . "\n"
+            . "DB_PASS=" . $quote($config['pass']) . "\n"
             . "DB_PORT=" . $config['port'] . "\n"
             . "DB_CHARSET=utf8mb4\n\n"
             . "ENCRYPTION_KEY=" . $encryptionKey . "\n\n"
@@ -310,6 +315,8 @@ function installDatabase() {
         }
 
         file_put_contents('.env', $envContent);
+        // 限制 .env 仅所有者可读写，防止数据库密码与加密密钥泄露
+        @chmod('.env', 0600);
         
         // 清除Session中的数据库密码（安全措施）
         unset($_SESSION['db_config']);

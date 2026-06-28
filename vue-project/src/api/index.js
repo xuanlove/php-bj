@@ -8,6 +8,8 @@ const api = axios.create({
 
 let csrfToken = null
 
+export function resetCsrfToken() { csrfToken = null }
+
 export async function getCsrfToken() {
   if (!csrfToken) {
     try {
@@ -27,8 +29,23 @@ api.interceptors.request.use(async (config) => {
 })
 
 api.interceptors.response.use(r => r.data, async e => {
-  if (e.status === 401) window.location.href = '/#/login'
-  return e.response?.data || { success: false, message: '网络错误' }
+  // 401 未授权:跳转登录页(公开页除外,避免分享链接被踢)
+  if (e.response?.status === 401) {
+    const hash = window.location.hash || ''
+    if (!hash.startsWith('#/login') && !hash.startsWith('#/share')) {
+      window.location.hash = '#/login'
+    }
+  }
+  // CSRF 失效:重置 token 以便下次请求重新获取
+  if (e.response?.status === 403 && e.response?.data?.code === 'csrf_error') {
+    resetCsrfToken()
+  }
+  if (e.response) {
+    // 业务错误:返回响应体供调用方判断 success
+    return e.response.data
+  }
+  // 网络级错误:reject,让调用方的 catch 生效
+  return Promise.reject(e)
 })
 
 export const authApi = {

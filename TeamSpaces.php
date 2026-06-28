@@ -233,7 +233,11 @@ class TeamSpaces {
 
         $target_user_id = intval($data['user_id'] ?? 0);
         $role = $data['role'] ?? 'member';
-        
+        // 角色白名单校验，禁止添加 owner 提权
+        if (!in_array($role, ['admin', 'member'], true)) {
+            return ['success' => false, 'message' => '无效的角色'];
+        }
+
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO team_members (team_id, user_id, role, invited_by) VALUES (?, ?, ?, ?)"
@@ -385,15 +389,25 @@ class TeamSpaces {
      * 共享笔记到团队
      */
     public function shareNoteToTeam($note_id, $team_id, $user_id, $permission = 'read') {
+        // 权限白名单校验，防止提权
+        if (!in_array($permission, ['read', 'edit'], true)) {
+            return ['success' => false, 'message' => '无效的权限值'];
+        }
+
         // 笔记所有者才能共享
         $stmt = $this->db->prepare("SELECT user_id FROM notes WHERE id = ?");
         $stmt->execute([$note_id]);
         $note = $stmt->fetch();
-        
+
         if (!$note || $note['user_id'] != $user_id) {
             return ['success' => false, 'message' => '只有笔记所有者可以共享'];
         }
-        
+
+        // 必须是该团队成员，防止分享到任意团队
+        if (!$this->isMember($team_id, $user_id)) {
+            return ['success' => false, 'message' => '只有团队成员可以共享笔记到该团队'];
+        }
+
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO team_note_permissions (note_id, team_id, permission, granted_by)

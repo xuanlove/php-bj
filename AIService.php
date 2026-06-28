@@ -36,9 +36,9 @@ class AIService {
     private function callChatGPT($prompt, $content) {
         $api_key = $this->getSetting('chatgpt_api_key');
         $api_url = $this->getSetting('chatgpt_api_url');
-        
-        if (empty($api_key)) {
-            return ['success' => false, 'message' => 'ChatGPT API密钥未配置'];
+
+        if (empty($api_key) || empty($api_url)) {
+            return ['success' => false, 'message' => 'ChatGPT API配置不完整'];
         }
         
         $data = [
@@ -73,7 +73,7 @@ class AIService {
             ];
         }
         
-        return ['success' => false, 'message' => 'ChatGPT API调用失败', 'response' => $response];
+        return ['success' => false, 'message' => 'ChatGPT API调用失败'];
     }
     
     // 豆包API调用
@@ -122,9 +122,9 @@ class AIService {
     private function callClaude($prompt, $content) {
         $api_key = $this->getSetting('claude_api_key');
         $api_url = $this->getSetting('claude_api_url');
-        
-        if (empty($api_key)) {
-            return ['success' => false, 'message' => 'Claude API密钥未配置'];
+
+        if (empty($api_key) || empty($api_url)) {
+            return ['success' => false, 'message' => 'Claude API配置不完整'];
         }
         
         $data = [
@@ -210,7 +210,7 @@ class AIService {
             ];
         }
         
-        return ['success' => false, 'message' => '自定义OpenAI接口调用失败', 'response' => $response];
+        return ['success' => false, 'message' => '自定义OpenAI接口调用失败'];
     }
     
     // 校准笔记(修正语法、拼写等)

@@ -187,13 +187,20 @@ class VersionControl {
      */
     public function rollbackToVersion($note_id, $version_id, $user_id) {
         try {
+            // 验证笔记所有权，防止越权回滚他人笔记
+            $stmt = $this->db->prepare("SELECT id FROM notes WHERE id = ? AND user_id = ?");
+            $stmt->execute([$note_id, $user_id]);
+            if (!$stmt->fetch()) {
+                return ['success' => false, 'message' => '没有权限回滚此笔记'];
+            }
+
             // 获取版本内容
             $stmt = $this->db->prepare(
                 "SELECT * FROM note_versions WHERE id = ? AND note_id = ?"
             );
             $stmt->execute([$version_id, $note_id]);
             $version = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$version) {
                 return ['success' => false, 'message' => '版本不存在'];
             }

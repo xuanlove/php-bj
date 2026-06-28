@@ -57,7 +57,8 @@ class Comments {
             $stmt = $this->db->prepare(
                 "INSERT INTO comments (note_id, user_id, parent_id, content) VALUES (?, ?, ?, ?)"
             );
-            $stmt->execute([$note_id, $user_id, $parent_id, sanitizeInput($content)]);
+            // 仅去除标签，不做 htmlspecialchars，避免与前端 {{ }} 双重转义；XSS 由前端插值转义防护
+            $stmt->execute([$note_id, $user_id, $parent_id, trim(strip_tags($content))]);
 
             $comment_id = $this->db->lastInsertId();
 
@@ -180,7 +181,7 @@ class Comments {
             $stmt = $this->db->prepare(
                 "UPDATE comments SET content = ?, updated_at = NOW() WHERE id = ?"
             );
-            $stmt->execute([sanitizeInput($content), $comment_id]);
+            $stmt->execute([trim(strip_tags($content)), $comment_id]);
 
             return ['success' => true, 'message' => '评论已更新'];
 

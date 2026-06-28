@@ -16,7 +16,7 @@
       <h2>编辑器</h2>
       <div class="field">
         <label>字号:</label>
-        <input type="number" v-model="fontSize" class="input" style="width:80px" min="12" max="24">
+        <input type="number" v-model.number="fontSize" class="input" style="width:80px" min="12" max="24">
       </div>
       <div class="field">
         <label>Tab 大小:</label>
@@ -166,9 +166,13 @@ async function fetchTwoFactorStatus() {
     const r = await twoFactorApi.status()
     if (r.success) {
       twoFactorEnabled.value = r.enabled
+      twoFactorStatus.value = 'loaded'
+    } else {
+      twoFactorStatus.value = 'error'
     }
-  } catch (e) { twoFactorStatus.value = 'error' }
-  twoFactorStatus.value = 'loaded'
+  } catch (e) {
+    twoFactorStatus.value = 'error'
+  }
 }
 
 async function generate2FA() {

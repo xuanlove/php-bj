@@ -46,9 +46,8 @@ onMounted(async () => {
 function formatDate(d) { return dayjs(d).format('YYYY-MM-DD') }
 
 async function toggleStatus(u) {
-  const statusOrder = ['active', 'suspended', 'disabled']
-  const idx = statusOrder.indexOf(u.status)
-  const newStatus = statusOrder[(idx + 1) % statusOrder.length]
+  // "解封"语义:任何非 active 状态都回到 active;"封禁":active → suspended
+  const newStatus = u.status === 'active' ? 'suspended' : 'active'
   const r = await adminApi.toggleUserStatus(u.id, newStatus)
   if (r.success) u.status = newStatus
   else alert(r.message)

@@ -45,13 +45,14 @@ onMounted(async () => {
 watch(() => [route.name, route.query.search], async () => { await loadNotes() })
 
 async function loadNotes() {
-  const filters = {}
-  if (route.name === 'Favorites') filters.is_favorite = 1
-  else if (route.name === 'Archived') filters.is_archived = 1
-  else if (route.query.search) {
+  // 搜索优先级最高,避免在收藏/归档页搜索时被过滤条件覆盖
+  if (route.query.search) {
     await notesStore.searchNotes(route.query.search)
     return
   }
+  const filters = {}
+  if (route.name === 'Favorites') filters.is_favorite = 1
+  else if (route.name === 'Archived') filters.is_archived = 1
   await notesStore.fetchNotes(filters)
 }
 
@@ -60,6 +61,7 @@ function formatDate(d) { return dayjs(d).fromNow() }
 async function createNote() {
   const r = await notesStore.createNote({ title: '新建笔记', content: '' })
   if (r.success) router.push(`/note/${r.note_id}`)
+  else alert(r.message || '创建失败')
 }
 
 function openNote(id) { router.push(`/note/${id}`) }

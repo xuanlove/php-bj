@@ -200,6 +200,11 @@ class NoteShares {
      * @return array
      */
     public function updatePermission($share_id, $owner_id, $permission) {
+        // 白名单校验，防止提权（owner/admin 等非法值）
+        if (!in_array($permission, ['read', 'edit'], true)) {
+            return ['success' => false, 'message' => '无效的权限值'];
+        }
+
         try {
             $stmt = $this->db->prepare(
                 "UPDATE note_shares SET permission = ? WHERE id = ? AND owner_id = ?"

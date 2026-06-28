@@ -180,7 +180,10 @@ SVG;
         $inputCode = strtoupper(trim($code));
         
         if ($storedCode !== $inputCode) {
-            return ['success' => false, 'message' => '验证码错误'];
+            // 验证失败也清除验证码，强制刷新，防止暴力枚举
+            unset($_SESSION['captcha_code']);
+            unset($_SESSION['captcha_time']);
+            return ['success' => false, 'message' => '验证码错误，请刷新'];
         }
         
         // 验证成功后清除验证码

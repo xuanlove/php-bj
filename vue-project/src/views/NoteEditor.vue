@@ -8,7 +8,7 @@
         <button class="btn btn-ghost" @click="showAttachments = !showAttachments" title="附件"><i class="fas fa-paperclip"></i></button>
         <button class="btn btn-ghost" @click="showComments = !showComments" title="评论"><i class="fas fa-comment"></i></button>
         <button class="btn btn-ghost" @click="showAIPanel = !showAIPanel"><i class="fas fa-robot"></i>AI</button>
-        <button class="btn btn-ghost" @click="showMoreMenu = !showMoreMenu"><i class="fas fa-ellipsis-h"></i></button>
+        <button class="btn btn-ghost" data-more-btn @click="showMoreMenu = !showMoreMenu"><i class="fas fa-ellipsis-h"></i></button>
         <button class="btn btn-primary" @click="saveNote" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
       </div>
     </div>
@@ -81,7 +81,7 @@
     </div>
 
     <!-- 更多菜单 -->
-    <div v-if="showMoreMenu" class="dropdown-menu">
+    <div v-if="showMoreMenu" class="dropdown-menu" data-more-menu>
       <div class="dropdown-item" @click="exportNote('markdown')">导出 Markdown</div>
       <div class="dropdown-item" @click="exportNote('html')">导出 HTML</div>
       <div class="dropdown-item" @click="exportNote('json')">导出 JSON</div>
@@ -92,7 +92,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useNotesStore } from '@/stores/notes'
 import { aiApi, shareApi } from '@/api'
@@ -121,18 +121,44 @@ const shareAllowDownload = ref(true)
 const shareUrl = ref('')
 let autoTimer = null
 
-onMounted(async () => {
-  if (noteId.value !== 'new') {
+async function loadNote() {
+  if (noteId.value && noteId.value !== 'new') {
     const r = await notesStore.fetchNote(noteId.value)
     if (r.success && r.note) {
       title.value = r.note.title || ''
       content.value = r.note.content || ''
     }
   }
+}
+
+onMounted(async () => {
+  await loadNote()
   try {
     const cfg = await aiApi.config()
     if (cfg.success && cfg.default_provider) aiProvider.value = cfg.default_provider
   } catch (e) { /* use default */ }
+  document.addEventListener('click', handleOutsideClick)
+})
+
+// 切换笔记 id 时重新加载(同组件复用场景)
+watch(() => route.params.id, (newId) => {
+  if (newId && newId !== noteId.value) {
+    noteId.value = newId
+    title.value = ''
+    content.value = ''
+    loadNote()
+  }
+})
+
+function handleOutsideClick(e) {
+  if (showMoreMenu.value && !e.target.closest('[data-more-menu]') && !e.target.closest('[data-more-btn]')) {
+    showMoreMenu.value = false
+  }
+}
+
+onUnmounted(() => {
+  if (autoTimer) clearTimeout(autoTimer)
+  document.removeEventListener('click', handleOutsideClick)
 })
 
 async function saveNote() {

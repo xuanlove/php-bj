@@ -57,8 +57,14 @@ async function handleRegister() {
   loading.value = true; error.value = ''
   const r = await authApi.register(reg.value)
   loading.value = false
-  if (r.success) { tab.value = 'login'; form.value.username = reg.value.username; alert('注册成功，请登录') }
-  else error.value = r.message
+  if (r.success) {
+    form.value.username = reg.value.username
+    reg.value = { username: '', email: '', password: '', confirm: '', invitation_code: '' }
+    tab.value = 'login'
+    alert('注册成功，请登录')
+  } else {
+    error.value = r.message
+  }
 }
 </script>
 
