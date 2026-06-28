@@ -123,22 +123,25 @@ class RecycleBin {
     
     /**
      * 永久删除笔记
-     * 
+     *
      * @param int $note_id 笔记ID
      * @param int $user_id 用户ID
+     * @param bool $skipOwnershipCheck 是否跳过所有权校验（系统操作如 autoCleanup 可传 true）
      * @return array
      */
-    public function permanentDelete($note_id, $user_id) {
+    public function permanentDelete($note_id, $user_id, $skipOwnershipCheck = false) {
         try {
-            // 验证笔记所有权
-            $stmt = $this->db->prepare(
-                "SELECT id, deleted_at FROM notes WHERE id = ? AND user_id = ?"
-            );
-            $stmt->execute([$note_id, $user_id]);
-            $note = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$note) {
-                return ['success' => false, 'message' => '笔记不存在或没有权限'];
+            // 验证笔记所有权（系统操作可跳过）
+            if (!$skipOwnershipCheck) {
+                $stmt = $this->db->prepare(
+                    "SELECT id, deleted_at FROM notes WHERE id = ? AND user_id = ?"
+                );
+                $stmt->execute([$note_id, $user_id]);
+                $note = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$note) {
+                    return ['success' => false, 'message' => '笔记不存在或没有权限'];
+                }
             }
             
             // 开始事务
@@ -297,8 +300,8 @@ class RecycleBin {
             
             $deletedCount = 0;
             foreach ($notes as $note) {
-                // 永久删除
-                $result = $this->permanentDelete($note['id'], $note['user_id']);
+                // 永久删除（系统清理操作，跳过所有权校验）
+                $result = $this->permanentDelete($note['id'], $note['user_id'], true);
                 if ($result['success']) {
                     $deletedCount++;
                 }

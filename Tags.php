@@ -14,12 +14,17 @@ class Tags {
     }
     
     // 获取用户所有标签
-    public function getList($user_id) {
+    public function getList($user_id, $data = []) {
         // 首先确保note_tags表存在
         $this->ensureTableExists();
-        
+
+        // 字段名白名单，防止 SQL 注入
+        $allowedSortFields = ['name', 'note_count', 'created_at'];
+        $sortBy = in_array($data['sort_by'] ?? 'created_at', $allowedSortFields) ? ($data['sort_by'] ?? 'created_at') : 'created_at';
+        $sortOrder = strtoupper($data['sort_order'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+
         $stmt = $this->db->prepare("
-            SELECT 
+            SELECT
                 t.id,
                 t.name,
                 t.color,
@@ -30,11 +35,11 @@ class Tags {
             LEFT JOIN notes n ON nt.note_id = n.id AND n.user_id = ?
             WHERE t.user_id = ?
             GROUP BY t.id
-            ORDER BY t.created_at DESC
+            ORDER BY `$sortBy` $sortOrder
         ");
         $stmt->execute([$user_id, $user_id]);
         $tags = $stmt->fetchAll();
-        
+
         return [
             'success' => true,
             'tags' => $tags

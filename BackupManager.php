@@ -179,6 +179,8 @@ class BackupManager {
         }
 
         $logId = $this->createLog($configId, 'in_progress');
+        $zipPath = null;
+        $storage = null;
 
         try {
             // 1. 创建完整备份 ZIP
@@ -194,20 +196,16 @@ class BackupManager {
             $uploadResult = $storage->upload($zipPath, $fileName);
 
             if (!$uploadResult['success']) {
-                @unlink($zipPath);
                 throw new Exception('上传失败: ' . $uploadResult['message']);
             }
 
-            // 3. 上传成功后删除本地临时文件
-            @unlink($zipPath);
-
-            // 4. 执行保留策略（删除旧备份）
+            // 3. 执行保留策略（删除旧备份）
             $deletedCount = $this->applyRetentionPolicy($config, $storage, $fileName);
 
-            // 5. 更新日志
+            // 4. 更新日志
             $this->updateLog($logId, 'success', $fileName, $fileSize);
 
-            // 6. 更新配置
+            // 5. 更新配置
             $this->updateConfigLastBackup($configId, $config['backup_frequency']);
 
             logSecurityEvent('backup_performed', [
@@ -227,6 +225,11 @@ class BackupManager {
         } catch (Exception $e) {
             $this->updateLog($logId, 'failed', '', 0, $e->getMessage());
             return ['success' => false, 'message' => '备份失败: ' . $e->getMessage()];
+        } finally {
+            // 无论成功或失败，都清理本地临时 ZIP 文件
+            if ($zipPath !== null && file_exists($zipPath)) {
+                @unlink($zipPath);
+            }
         }
     }
 

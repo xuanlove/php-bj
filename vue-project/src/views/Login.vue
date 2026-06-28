@@ -72,7 +72,11 @@ async function handleLogin() {
   loading.value = true; error.value = ''
   const r = await userStore.login(form.value)
   loading.value = false
-  if (r.success) router.push(route.query.redirect || '/')
+  if (r.success) {
+    // 校验 redirect 必须是字符串且为站内路径，避免开放重定向漏洞
+    const redirect = route.query.redirect
+    router.push(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/')
+  }
   else error.value = r.message
 }
 
@@ -81,7 +85,18 @@ async function handleRegister() {
   loading.value = true; error.value = ''
   const r = await authApi.register(reg.value)
   loading.value = false
-  if (r.success) { tab.value = 'login'; form.value.username = reg.value.username; alert('注册成功，请登录') }
+  if (r.success) {
+    // 清空注册表单，避免敏感信息残留或下次误填
+    reg.value.username = ''
+    reg.value.email = ''
+    reg.value.password = ''
+    reg.value.confirm = ''
+    reg.value.invitation_code = ''
+    tab.value = 'login'
+    form.value.username = ''
+    form.value.password = ''
+    alert('注册成功，请登录')
+  }
   else error.value = r.message
 }
 </script>
@@ -97,7 +112,9 @@ async function handleRegister() {
 .tabs button { flex: 1; padding: 12px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); cursor: pointer; }
 .tabs button.active { color: var(--accent-gold); border-bottom-color: var(--accent-gold); }
 .form-group { margin-bottom: 16px; }
-.form-group label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px; }
+.form-group label { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px; }
+/* 触摸目标至少 44x44 像素，满足移动端可访问性 */
+.form-group input { min-height: 44px; }
 .btn-block { width: 100%; padding: 14px; margin-top: 10px; }
 .error { margin-top: 16px; padding: 12px; background: rgba(244,67,54,0.1); border: 1px solid var(--danger); border-radius: 6px; color: var(--danger); text-align: center; }
 .password-field { position: relative; }

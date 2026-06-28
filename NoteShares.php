@@ -56,13 +56,17 @@ class NoteShares {
 
             // 检查是否已经分享过
             $stmt = $this->db->prepare(
-                "SELECT id FROM note_shares WHERE note_id = ? AND owner_id = ? AND shared_with_id = ?"
+                "SELECT id, permission FROM note_shares WHERE note_id = ? AND owner_id = ? AND shared_with_id = ?"
             );
             $stmt->execute([$note_id, $owner_id, $shared_with_id]);
             $existing = $stmt->fetch();
 
             if ($existing) {
-                // 更新权限
+                // 权限相同则无需更新
+                if ($existing['permission'] === $permission) {
+                    return ['success' => true, 'message' => '分享权限未变化'];
+                }
+                // 权限不同则更新
                 $stmt = $this->db->prepare(
                     "UPDATE note_shares SET permission = ? WHERE id = ?"
                 );

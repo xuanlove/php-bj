@@ -166,10 +166,15 @@ const router = useRouter()
 const notesStore = useNotesStore()
 const userStore = useUserStore()
 // 自动保存开关：跟随用户设置（默认开启）
-const autoSaveEnabled = computed(() => userStore.settings?.auto_save !== false)
+const autoSaveEnabled = computed(() => {
+  const settings = userStore.settings
+  if (!settings) return true
+  return settings.auto_save !== false  // 默认 true
+})
 const noteId = ref(route.params.id)
 const title = ref('')
 const content = ref('')
+const tags = ref([])
 const saving = ref(false)
 const showAIPanel = ref(false)
 const showVersionPanel = ref(false)
@@ -200,8 +205,14 @@ async function loadNote() {
   if (noteId.value !== 'new') {
     const r = await notesStore.fetchNote(noteId.value)
     if (r.success && r.note) {
-      title.value = r.note.title || ''
-      content.value = r.note.content || ''
+      // 字段默认值兜底，避免 undefined 触发模板渲染异常
+      const note = r.note
+      title.value = note.title || '无标题'
+      content.value = note.content || ''
+      tags.value = Array.isArray(note.tags) ? note.tags : []
+      // 同步保存基线，使 isDirty 从 false 开始
+      lastSavedTitle.value = title.value
+      lastSavedContent.value = content.value
     }
   }
 }
@@ -219,6 +230,20 @@ watch(() => route.params.id, (newId) => {
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
   if (newId) {
     noteId.value = newId
+    // 重置内部状态，避免上一条笔记的数据残留到新笔记上
+    title.value = ''
+    content.value = ''
+    tags.value = []
+    aiResult.value = ''
+    aiActionType.value = ''
+    versions.value = []
+    attachments.value = []
+    comments.value = []
+    newComment.value = ''
+    showVersionPanel.value = false
+    showAttachments.value = false
+    showComments.value = false
+    showAIPanel.value = false
     loadNote()
   }
 })
@@ -245,19 +270,31 @@ function handleClickOutside(e) {
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
+// 跟踪最近一次保存的标题/内容，用于判断是否有未保存改动
+const lastSavedTitle = ref('')
+const lastSavedContent = ref('')
+const isDirty = computed(() => title.value !== lastSavedTitle.value || content.value !== lastSavedContent.value)
+
 async function saveNote() {
   if (saving.value) return
   saving.value = true
+  let r
   try {
-    let r
     if (noteId.value === 'new') {
       r = await notesStore.createNote({ title: title.value || '无标题', content: content.value })
       if (r.success) { noteId.value = r.note_id; router.replace(`/note/${r.note_id}`) }
     } else {
       r = await notesStore.updateNote(noteId.value, { title: title.value, content: content.value })
     }
-    if (!r.success) alert(r.message)
+    if (r.success) {
+      // 保存成功后更新基准值，避免 isDirty 误判
+      lastSavedTitle.value = title.value
+      lastSavedContent.value = content.value
+    } else {
+      alert(r.message)
+    }
   } finally { saving.value = false }
+  return r
 }
 
 function autoSave() {
@@ -268,7 +305,11 @@ function autoSave() {
 }
 
 async function aiAction(type) {
-  if (!noteId.value || noteId.value === 'new') { alert('请先保存笔记'); return }
+  // 新笔记或内容有改动时，先保存再触发 AI；保存失败则中断，避免对空/旧数据做 AI
+  if (noteId.value === 'new' || isDirty.value) {
+    const saved = await saveNote()
+    if (!saved || !saved.success) return
+  }
   aiActionType.value = type
   aiLoading.value = true; aiResult.value = ''
   try {
@@ -347,8 +388,13 @@ async function loadAttachments() {
 // 加载评论列表
 async function loadComments() {
   if (!noteId.value || noteId.value === 'new') return
-  const r = await commentsApi.list(noteId.value)
-  if (r.success) comments.value = r.comments || r.data || []
+  try {
+    const r = await commentsApi.list(noteId.value)
+    if (r.success) comments.value = r.comments || r.data || []
+  } catch (e) {
+    // 网络异常时仅记录日志，避免弹窗干扰用户编辑体验
+    console.error('加载评论失败：', e)
+  }
 }
 
 // 上传附件
@@ -394,22 +440,25 @@ async function addComment() {
 .editor-container { flex: 1; display: flex; }
 .editor-main { flex: 1; padding: 24px; display: flex; flex-direction: column; }
 .title-input { width: 100%; padding: 12px 0; margin-bottom: 16px; background: transparent; border: none; outline: none; font-size: 28px; font-weight: 600; color: var(--text-primary); }
+.title-input:focus { outline: 2px solid var(--accent-gold); outline-offset: -2px; }
 .content-textarea { flex: 1; width: 100%; padding: 16px; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; line-height: 1.8; resize: none; }
-.content-textarea:focus { outline: none; border-color: var(--accent-gold); }
+.content-textarea:focus { outline: 2px solid var(--accent-gold); outline-offset: -2px; }
 .editor-sidebar { width: 300px; background: var(--secondary-bg); border-left: 1px solid var(--border-color); padding: 16px; overflow-y: auto; }
+/* 限制 AI 面板最大高度，避免内容过多时溢出 */
+.ai-panel { max-height: 80vh; overflow-y: auto; }
 .ai-panel h3 { font-size: 16px; margin-bottom: 16px; }
 .provider-select { margin-bottom: 12px; }
 .provider-select select { width: 100%; }
 .style-select { margin-bottom: 12px; }
 .style-select select { width: 100%; }
 .ai-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
-.ai-btn { padding: 16px; background: var(--hover-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-secondary); cursor: pointer; }
-.ai-btn:hover { border-color: var(--accent-gold); }
+.ai-btn { padding: 16px; background: var(--hover-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.ai-btn:hover { background: var(--accent-gold); color: var(--primary-bg); border-color: var(--accent-gold); }
 .ai-result { padding: 12px; background: var(--hover-bg); border-radius: 8px; white-space: pre-wrap; }
 .ai-loading { text-align: center; padding: 20px; color: var(--text-secondary); }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 200; }
-.modal { background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; width: 420px; max-width: 90vw; }
+.modal { background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; width: 420px; max-width: 90vw; max-height: 80vh; overflow-y: auto; }
 .modal h3 { font-size: 18px; margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 14px; }
@@ -432,6 +481,8 @@ async function addComment() {
 .input:focus { outline: none; border-color: var(--accent-gold); }
 .btn-ghost { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 8px 12px; border-radius: 6px; font-size: 14px; display: flex; align-items: center; gap: 6px; }
 .btn-ghost:hover { background: var(--hover-bg); color: var(--text-primary); }
+.btn-ghost:focus { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.btn-ghost:focus:not(:focus-visible) { outline: none; }
 .btn-primary { padding: 8px 16px; background: var(--accent-gold); border: none; border-radius: 6px; color: var(--primary-bg); cursor: pointer; font-size: 14px; font-weight: 500; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -442,6 +493,8 @@ async function addComment() {
 .panel-body { padding: 16px; }
 .icon-btn { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; line-height: 1; }
 .icon-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+.icon-btn:focus { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.icon-btn:focus:not(:focus-visible) { outline: none; }
 .btn-secondary { padding: 8px 16px; background: var(--hover-bg); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 14px; margin-bottom: 12px; }
 .btn-secondary:hover { border-color: var(--accent-gold); }
 .loading { display: flex; justify-content: center; padding: 24px; }
@@ -454,10 +507,10 @@ async function addComment() {
 .version-info { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
 .version-num { font-weight: 600; color: var(--accent-gold); font-size: 13px; }
 .version-time { color: var(--text-muted); font-size: 12px; }
-.version-desc { color: var(--text-secondary); font-size: 13px; }
+.version-desc { color: var(--text-secondary); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
 .attachment-item:last-child { border-bottom: none; }
-.attachment-name { color: var(--text-primary); font-size: 14px; }
+.attachment-name { color: var(--text-primary); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comment-input { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .comment-input textarea { width: 100%; padding: 8px 12px; background: var(--primary-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; resize: vertical; min-height: 60px; box-sizing: border-box; }
 .comment-input textarea:focus { outline: none; border-color: var(--accent-gold); }
@@ -465,6 +518,13 @@ async function addComment() {
 .comment-item { padding: 12px 0; border-bottom: 1px solid var(--border-color); }
 .comment-item:last-child { border-bottom: none; }
 .comment-author { font-weight: 600; color: var(--text-primary); font-size: 14px; margin-bottom: 4px; }
-.comment-content { color: var(--text-secondary); font-size: 14px; margin-bottom: 4px; white-space: pre-wrap; }
+.comment-content { color: var(--text-secondary); font-size: 14px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: pre-wrap; }
 .comment-time { color: var(--text-muted); font-size: 12px; }
+
+/* 移动端编辑区适配 */
+@media (max-width: 768px) {
+  .editor-main { padding: 12px; }
+  .title-input { font-size: 20px; }
+  .editor-header { padding: 8px 12px; flex-wrap: wrap; }
+}
 </style>

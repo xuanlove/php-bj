@@ -100,11 +100,17 @@ class VersionControl {
      */
     public function getVersionList($note_id, $user_id, $limit = 20, $offset = 0) {
         try {
-            // 验证笔记所有权
-            $stmt = $this->db->prepare("SELECT id FROM notes WHERE id = ? AND user_id = ?");
-            $stmt->execute([$note_id, $user_id]);
-            if (!$stmt->fetch()) {
-                return ['success' => false, 'message' => '没有权限查看此笔记的版本'];
+            // 验证笔记所有权或协作者权限
+            $noteCheck = $this->db->prepare("SELECT user_id FROM notes WHERE id = ? AND deleted_at IS NULL");
+            $noteCheck->execute([$note_id]);
+            $noteOwner = $noteCheck->fetchColumn();
+            if (!$noteOwner) {
+                return ['success' => false, 'message' => '笔记不存在'];
+            }
+            $collabCheck = $this->db->prepare("SELECT 1 FROM note_collaborators WHERE note_id = ? AND user_id = ?");
+            $collabCheck->execute([$note_id, $user_id]);
+            if ($noteOwner != $user_id && !$collabCheck->fetch()) {
+                return ['success' => false, 'message' => '无权访问此笔记的版本'];
             }
             
             $stmt = $this->db->prepare(
@@ -313,7 +319,13 @@ class VersionControl {
             if (!$v1 || !$v2) {
                 return ['success' => false, 'message' => '版本不存在'];
             }
-            
+
+            // 限制内容长度，避免内存耗尽
+            $maxLen = 1000000; // 1MB
+            if (strlen($v1['content']) > $maxLen || strlen($v2['content']) > $maxLen) {
+                return ['success' => false, 'message' => '笔记内容过大，无法比较'];
+            }
+
             // 计算差异
             $diff = $this->calculateDiff($v1['content'], $v2['content']);
             

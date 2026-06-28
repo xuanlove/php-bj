@@ -198,8 +198,16 @@ async function handleLogout() {
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s;
   i { width: 20px; text-align: center; }
   &:hover { background: var(--hover-bg); color: var(--text-primary); }
-  &:focus { outline: none; background: var(--hover-bg); color: var(--text-primary); box-shadow: 0 0 0 2px var(--accent-gold); }
+  // 键盘焦点样式，使用轮廓保证可访问性
+  &:focus { outline: 2px solid var(--accent-gold); outline-offset: -2px; }
+  &:focus:not(:focus-visible) { outline: none; }
   &.active { background: var(--hover-bg); color: var(--accent-gold); }
+}
+
+// 浅色主题下激活态文字需使用深色保证对比度
+body.light-theme .nav-item.active {
+  color: var(--primary-bg, #1a1a2e);
+  background: var(--accent-gold);
 }
 
 .sidebar-footer { padding: 16px; border-top: 1px solid var(--border-color); }
@@ -247,8 +255,8 @@ async function handleLogout() {
   display: block;
 }
 
-// 移动端响应式适配
-@media (max-width: 768px) {
+// 中等屏适配（平板）：<=1024 收起侧边栏
+@media (max-width: 1024px) {
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -260,14 +268,25 @@ async function handleLogout() {
   .main-content {
     margin-left: 0;
   }
-  .top-bar .search-box {
-    max-width: 200px;
-  }
   .mobile-menu-toggle {
     display: flex !important;
   }
   .sidebar-overlay {
     display: block;
+  }
+}
+
+// 大于中等屏：恢复固定侧边栏布局
+@media (min-width: 1025px) {
+  .mobile-menu-toggle { display: none !important; }
+  .sidebar { transform: none !important; }
+  .main-content { margin-left: 260px; }
+}
+
+// 移动端响应式适配
+@media (max-width: 768px) {
+  .top-bar .search-box {
+    max-width: 200px;
   }
 }
 </style>

@@ -133,22 +133,24 @@ class Notes {
         if (!$this->verifyOwnership($note_id, $user_id)) {
             return ['success' => false, 'message' => '没有权限删除此笔记'];
         }
-        
-        // 获取并删除所有附件文件
-        $stmt = $this->db->prepare("SELECT * FROM attachments WHERE note_id = ?");
+
+        // 先获取所有附件的文件路径
+        $stmt = $this->db->prepare("SELECT file_path FROM attachments WHERE note_id = ?");
         $stmt->execute([$note_id]);
         $attachments = $stmt->fetchAll();
-        
-        // 删除笔记（数据库级联会删除附件记录）
+
+        // 先删除物理附件文件，避免 DB 删除失败时物理文件残留
+        foreach ($attachments as $attachment) {
+            $filePath = $attachment['file_path'] ?? null;
+            if ($filePath && file_exists($filePath)) {
+                @unlink($filePath);
+            }
+        }
+
+        // 然后删除数据库记录（数据库级联会删除附件、版本等记录）
         $stmt = $this->db->prepare("DELETE FROM notes WHERE id = ?");
         try {
             $stmt->execute([$note_id]);
-            // 数据库删除成功后再删除附件文件，避免 DB 删除失败时文件已丢失
-            foreach ($attachments as $attachment) {
-                if (file_exists($attachment['file_path'])) {
-                    @unlink($attachment['file_path']);
-                }
-            }
             return ['success' => true, 'message' => '笔记及相关文件已删除'];
         } catch (Exception $e) {
             return ['success' => false, 'message' => '删除失败，请稍后重试'];

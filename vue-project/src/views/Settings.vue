@@ -152,14 +152,25 @@ async function applyTheme() {
 
 async function saveSettings() {
   saving.value = true
-  const r = await userStore.updateSettings({
-    theme: theme.value,
-    editor_font_size: fontSize.value,
-    editor_tab_size: tabSize.value,
-    auto_save: autoSave.value
-  })
-  saving.value = false
-  alert(r.success ? '设置已保存' : r.message)
+  try {
+    const r = await userStore.updateSettings({
+      theme: theme.value,
+      editor_font_size: fontSize.value,
+      editor_tab_size: tabSize.value,
+      auto_save: autoSave.value
+    })
+    // 兼容 r.success 与 r.data?.success 两种响应结构
+    if (r && (r.success || r.data?.success)) {
+      alert('设置已保存')
+    } else {
+      alert('保存失败：' + (r?.message || '未知错误'))
+    }
+  } catch (e) {
+    // 捕获网络异常，避免无反馈
+    alert('保存失败：' + (e.message || '网络错误'))
+  } finally {
+    saving.value = false
+  }
 }
 
 async function fetchTwoFactorStatus() {
@@ -176,9 +187,18 @@ async function generate2FA() {
   twoFactorLoading.value = true
   try {
     const r = await twoFactorApi.generate()
-    if (r.success) twoFactorSecret.value = r.secret
-    else alert(r.message)
-  } finally { twoFactorLoading.value = false }
+    if (r && (r.success || r.data?.success)) {
+      // 兼容不同响应结构
+      twoFactorSecret.value = r.secret || r.data?.secret
+    } else {
+      alert('生成失败：' + (r?.message || '未知错误'))
+    }
+  } catch (e) {
+    // 网络异常时给出明确提示
+    alert('生成失败：' + (e.message || '网络错误'))
+  } finally {
+    twoFactorLoading.value = false
+  }
 }
 
 async function enable2FA() {
@@ -219,12 +239,20 @@ async function createApiKey() {
   if (!newKeyName.value.trim()) return
   try {
     const r = await apiKeysApi.create(newKeyName.value, ['read', 'write'])
-    if (r.success) {
-      newKeyValue.value = r.key || r.api_key
+    if (r && (r.success || r.data?.success)) {
+      newKeyValue.value = r.key || r.api_key || r.data?.key
       newKeyName.value = ''
-      fetchApiKeys()
-    } else alert(r.message)
-  } catch (e) { alert('创建失败') }
+      await fetchApiKeys()
+    } else {
+      // 失败时清空已写入的本地值，避免前端展示与后端状态不一致
+      newKeyValue.value = ''
+      alert('创建失败：' + (r?.message || '未知错误'))
+    }
+  } catch (e) {
+    // 异常情况下回滚本地状态，防止脏数据残留
+    newKeyValue.value = ''
+    alert('创建失败：' + (e.message || '网络错误'))
+  }
 }
 
 async function toggleApiKey(id) {
@@ -276,6 +304,8 @@ async function deleteApiKey(id) {
 
 .btn-ghost { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
 .btn-ghost:hover { background: var(--hover-bg); color: var(--text-primary); }
+.btn-ghost:focus { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.btn-ghost:focus:not(:focus-visible) { outline: none; }
 .btn-primary { padding: 10px 20px; background: var(--accent-gold); border: none; border-radius: 8px; color: var(--primary-bg); cursor: pointer; font-size: 14px; font-weight: 500; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-danger { padding: 10px 20px; background: #ef4444; border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 14px; }

@@ -93,4 +93,9 @@ async function emptyAll() {
 .btn-sm { padding: 6px 12px; font-size: 12px; margin-left: 8px; }
 .empty { text-align: center; padding: 60px; color: var(--text-muted); }
 .loading { text-align: center; padding: 40px; color: var(--text-muted); }
+.icon-btn { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+.icon-btn:focus, .icon-btn:hover {
+  outline: 2px solid var(--accent-gold);
+  background: var(--hover-bg);
+}
 </style>

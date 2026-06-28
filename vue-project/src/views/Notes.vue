@@ -45,10 +45,14 @@ onMounted(async () => {
 watch(() => [route.name, route.query.search], async () => { await loadNotes() })
 
 async function loadNotes() {
-  const filters = {}
-  if (route.name === 'Favorites') filters.is_favorite = 1
-  else if (route.name === 'Archived') filters.is_archived = 1
-  else if (route.query.search) {
+  // 统一构建筛选条件，便于在搜索/收藏/归档等场景复用
+  const filters = {
+    favorites: route.name === 'Favorites' ? 1 : 0,
+    archived: route.name === 'Archived' ? 1 : 0,
+    search: route.query.search || ''
+  }
+  if (route.query.search) {
+    // 搜索分支：调用专用 search 接口并直接返回，避免再次触发 fetchNotes 覆盖结果
     await notesStore.searchNotes(route.query.search)
     return
   }

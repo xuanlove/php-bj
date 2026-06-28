@@ -45,6 +45,8 @@
         </div>
       </div>
       <button class="btn btn-secondary" @click="changePw" :disabled="changing">{{ changing ? '修改中...' : '修改密码' }}</button>
+      <div v-if="pwError" class="error-msg">{{ pwError }}</div>
+      <div v-if="pwSuccess" class="success-msg">{{ pwSuccess }}</div>
     </div>
 
     <div class="section">
@@ -72,6 +74,9 @@ const twofaLoading = ref(false)
 const showOldPassword = ref(false)
 const showNewPassword = ref(false)
 const showConfirmPassword = ref(false)
+// 修改密码错误/成功提示
+const pwError = ref('')
+const pwSuccess = ref('')
 
 const form = ref({ username: '', email: '', full_name: '' })
 const pw = ref({ old: '', new: '', confirm: '' })
@@ -97,12 +102,33 @@ async function saveProfile() {
 }
 
 async function changePw() {
-  if (pw.value.new !== pw.value.confirm) { alert('密码不一致'); return }
+  // 前置校验：两次输入一致 & 最小长度，避免无效请求
+  if (pw.value.new !== pw.value.confirm) {
+    pwError.value = '两次输入的密码不一致'
+    return
+  }
+  if (pw.value.new.length < 8) {
+    pwError.value = '新密码至少 8 位'
+    return
+  }
+  pwError.value = ''
   changing.value = true
-  const r = await userStore.changePassword(pw.value.old, pw.value.new)
-  changing.value = false
-  if (r.success) { pw.value = { old: '', new: '', confirm: '' }; alert('密码已修改') }
-  else alert(r.message)
+  try {
+    const r = await userStore.changePassword(pw.value.old, pw.value.new)
+    if (r && (r.success || r.data?.success)) {
+      pwSuccess.value = '密码修改成功'
+      pwError.value = ''
+      // 清空表单，防止敏感凭据残留
+      pw.value = { old: '', new: '', confirm: '' }
+    } else {
+      pwError.value = r?.message || '修改失败'
+    }
+  } catch (e) {
+    // 网络/服务异常时给出可读错误，不弹原生 alert
+    pwError.value = '网络错误：' + (e.message || '请稍后重试')
+  } finally {
+    changing.value = false
+  }
 }
 
 async function enable2FA() {
@@ -150,4 +176,6 @@ async function disable2FA() {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   background: none; border: none; cursor: pointer; color: var(--text-secondary);
 }
+.error-msg { margin-top: 12px; padding: 10px 12px; background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-radius: 6px; color: #ef4444; font-size: 13px; }
+.success-msg { margin-top: 12px; padding: 10px 12px; background: rgba(76,175,80,0.1); border: 1px solid #4caf50; border-radius: 6px; color: #4caf50; font-size: 13px; }
 </style>
