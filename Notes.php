@@ -673,15 +673,27 @@ class Notes {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{$safeTitle}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #333; }
         h1 { color: #333; border-bottom: 2px solid #d4af37; padding-bottom: 10px; }
+        h2 { font-size: 1.5em; margin-top: 1.5em; }
+        h3 { font-size: 1.25em; margin-top: 1.25em; }
         .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
         .tags { margin: 10px 0; }
         .tag { display: inline-block; padding: 2px 8px; background: #f0f0f0; border-radius: 12px; font-size: 0.85em; margin-right: 4px; }
-        pre { background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; }
-        code { background: #f5f5f5; padding: 2px 4px; border-radius: 4px; }
-        blockquote { border-left: 4px solid #d4af37; margin: 0; padding-left: 16px; color: #666; }
+        pre { background: #0d1117; padding: 14px; border-radius: 8px; overflow-x: auto; }
+        pre code { font-family: 'Source Code Pro', 'Consolas', monospace; font-size: 13px; background: transparent; padding: 0; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: 'Source Code Pro', monospace; color: #d4af37; }
+        blockquote { border-left: 4px solid #d4af37; margin: 10px 0; padding: 8px 16px; color: #666; background: #fafafa; border-radius: 0 6px 6px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f5f5f5; }
+        a { color: #d4af37; }
+        img { max-width: 100%; border-radius: 8px; }
+        hr { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
+        ul, ol { padding-left: 24px; }
     </style>
 </head>
 <body>
@@ -690,32 +702,115 @@ class Notes {
         创建于: {$note['created_at']} | 更新于: {$note['updated_at']}
     </div>
 HTML;
-        
+
         if (!empty($note['tags'])) {
             $tagsHtml = '<div class="tags">' . implode('', array_map(function($tag) {
                 return '<span class="tag">' . htmlspecialchars($tag) . '</span>';
             }, $note['tags'])) . '</div>';
             $html .= $tagsHtml;
         }
-        
-        // 简单转换 Markdown 为 HTML（实际项目中建议使用Parsedown等库）
-        $content = htmlspecialchars($note['content']);
-        $content = nl2br($content);
-        
+
+        // 将 Markdown 转换为 HTML（带代码高亮 class）
+        $content = $this->renderMarkdownForExport($note['content']);
+
         $html .= <<<HTML
     <div class="content">
         {$content}
     </div>
+    <script>document.querySelectorAll('pre code').forEach(b => { try { hljs.highlightElement(b); } catch(e) {} });</script>
 </body>
 </html>
 HTML;
-        
+
         return [
             'success' => true,
             'content' => $html,
             'filename' => $this->sanitizeFilename($note['title']) . '.html',
             'mime_type' => 'text/html'
         ];
+    }
+
+    /**
+     * 轻量 Markdown→HTML 转换（用于 HTML 导出）
+     * 支持：标题、代码块（带语言 class）、行内代码、粗斜体、引用、列表、链接、图片、分隔线、表格
+     * 不引入外部依赖，足够导出场景使用；前端编辑器预览使用 marked+highlight.js
+     */
+    private function renderMarkdownForExport($text) {
+        if (empty($text)) return '';
+
+        // 1. 先提取代码块占位，避免被其它规则破坏
+        // 注意：占位符不能用 null 字节（\x00），因为 trim() 会把它去除导致还原失败
+        $codeBlocks = [];
+        $text = preg_replace_callback('/```(\w*)\n(.*?)```/s', function($m) use (&$codeBlocks) {
+            $lang = trim($m[1]);
+            $code = htmlspecialchars($m[2], ENT_QUOTES, 'UTF-8');
+            $langClass = $lang ? " class=\"language-{$lang}\"" : '';
+            // 使用罕见的占位符标记，避免与正文冲突
+            $placeholder = "\x02CBLOCK" . count($codeBlocks) . "\x03";
+            $codeBlocks[] = "<pre><code{$langClass}>{$code}</code></pre>";
+            return $placeholder;
+        }, $text);
+
+        // 2. HTML 转义其余内容
+        $text = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+
+        // 3. 标题 h1-h4
+        $text = preg_replace('/^#### (.+)$/m', '<h4>$1</h4>', $text);
+        $text = preg_replace('/^### (.+)$/m', '<h3>$1</h3>', $text);
+        $text = preg_replace('/^## (.+)$/m', '<h2>$1</h2>', $text);
+        $text = preg_replace('/^# (.+)$/m', '<h1>$1</h1>', $text);
+
+        // 4. 分隔线
+        $text = preg_replace('/^---+$/m', '<hr>', $text);
+
+        // 5. 引用
+        $text = preg_replace('/^&gt; (.+)$/m', '<blockquote>$1</blockquote>', $text);
+
+        // 6. 粗体、斜体
+        $text = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text);
+        $text = preg_replace('/\*(.+?)\*/', '<em>$1</em>', $text);
+
+        // 7. 图片、链接
+        $text = preg_replace('/!\[([^\]]*)\]\(([^)]+)\)/', '<img src="$2" alt="$1">', $text);
+        $text = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2" target="_blank">$1</a>', $text);
+
+        // 8. 行内代码
+        $text = preg_replace('/`([^`]+)`/', '<code>$1</code>', $text);
+
+        // 9. 无序列表
+        $text = preg_replace_callback('/(?:^|\n)((?:[\-\*\+] .+(?:\n|$))+)/', function($m) {
+            $items = preg_replace('/^[\-\*\+] (.+)$/m', '<li>$1</li>', $m[1]);
+            return "\n<ul>\n" . $items . "\n</ul>";
+        }, $text);
+
+        // 10. 有序列表
+        $text = preg_replace_callback('/(?:^|\n)((?:\d+\. .+(?:\n|$))+)/', function($m) {
+            $items = preg_replace('/^\d+\. (.+)$/m', '<li>$1</li>', $m[1]);
+            return "\n<ol>\n" . $items . "\n</ol>";
+        }, $text);
+
+        // 11. 段落与换行
+        $text = preg_replace('/\n\n+/', "\n\n", $text);
+        $blocks = preg_split('/\n\n+/', $text);
+        $result = [];
+        foreach ($blocks as $block) {
+            $block = trim($block);
+            if ($block === '') continue;
+            // 跳过已是块级元素的
+            if (preg_match('/^<(h[1-6]|ul|ol|blockquote|pre|hr|table)/i', $block)) {
+                $result[] = $block;
+            } else {
+                $result[] = '<p>' . nl2br($block) . '</p>';
+            }
+        }
+        $text = implode("\n\n", $result);
+
+        // 12. 还原代码块
+        foreach ($codeBlocks as $i => $cb) {
+            $text = str_replace("\x02CBLOCK" . $i . "\x03", $cb, $text);
+        }
+
+        return $text;
     }
     
     /**

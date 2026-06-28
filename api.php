@@ -690,7 +690,12 @@ switch ($request) {
         if (!$auth->isLoggedIn() || $_SESSION['role'] !== 'admin') {
             sendResponse(['success' => false, 'message' => '需要管理员权限']);
         }
-        $backup_id = intval($_GET['backup_id'] ?? 0);
+        // 兼容 POST JSON body（前端 performBackup 用 api.post 传 backup_id）和 GET 参数
+        $performData = json_decode(file_get_contents('php://input'), true);
+        $backup_id = intval($performData['backup_id'] ?? $_GET['backup_id'] ?? 0);
+        if ($backup_id <= 0) {
+            sendResponse(['success' => false, 'message' => '无效的备份配置ID']);
+        }
         sendResponse($backup->performBackup($backup_id));
         break;
 

@@ -8,6 +8,9 @@
         <button class="btn btn-ghost" @click="showAttachments = !showAttachments" title="附件"><i class="fas fa-paperclip"></i></button>
         <button class="btn btn-ghost" @click="showComments = !showComments" title="评论"><i class="fas fa-comment"></i></button>
         <button class="btn btn-ghost" @click="showAIPanel = !showAIPanel"><i class="fas fa-robot"></i>AI</button>
+        <button class="btn btn-ghost" @click="toggleViewMode" :title="viewMode === 'edit' ? '预览' : '编辑'">
+          <i :class="viewMode === 'edit' ? 'fas fa-eye' : 'fas fa-pen'"></i>
+        </button>
         <button class="btn btn-ghost" data-more-btn @click="showMoreMenu = !showMoreMenu"><i class="fas fa-ellipsis-h"></i></button>
         <button class="btn btn-primary" @click="saveNote" :disabled="saving">{{ saving ? '保存中...' : '保存' }}</button>
       </div>
@@ -15,7 +18,12 @@
     <div class="editor-container">
       <div class="editor-main">
         <input v-model="title" class="title-input" placeholder="笔记标题" @input="autoSave">
-        <textarea v-model="content" class="content-textarea" placeholder="开始编辑笔记..." @input="autoSave"></textarea>
+        <div v-if="viewMode === 'split'" class="split-pane">
+          <textarea v-model="content" class="content-textarea split-left" placeholder="开始编辑笔记..." @input="autoSave"></textarea>
+          <div class="markdown-preview split-right" v-html="renderedContent"></div>
+        </div>
+        <div v-else-if="viewMode === 'preview'" class="markdown-preview full-preview" v-html="renderedContent"></div>
+        <textarea v-else v-model="content" class="content-textarea" placeholder="开始编辑笔记..." @input="autoSave"></textarea>
       </div>
       <aside class="editor-sidebar" v-if="showAIPanel">
         <div class="ai-panel">
@@ -92,10 +100,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useNotesStore } from '@/stores/notes'
 import { aiApi, shareApi } from '@/api'
+import { renderMarkdown } from '@/utils/markdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -110,6 +119,15 @@ const showAttachments = ref(false)
 const showComments = ref(false)
 const showShareModal = ref(false)
 const showMoreMenu = ref(false)
+// 视图模式：edit(纯编辑) / split(分屏) / preview(纯预览)
+const viewMode = ref('edit')
+const renderedContent = computed(() => renderMarkdown(content.value))
+
+function toggleViewMode() {
+  // edit -> split -> preview -> edit
+  const next = { edit: 'split', split: 'preview', preview: 'edit' }
+  viewMode.value = next[viewMode.value] || 'edit'
+}
 const aiResult = ref('')
 const aiLoading = ref(false)
 const aiProvider = ref('chatgpt')
@@ -240,6 +258,32 @@ async function deleteNote() {
 .title-input { width: 100%; padding: 12px 0; margin-bottom: 16px; background: transparent; border: none; outline: none; font-size: 28px; font-weight: 600; color: var(--text-primary); }
 .content-textarea { flex: 1; width: 100%; padding: 16px; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; line-height: 1.8; resize: none; }
 .content-textarea:focus { outline: none; border-color: var(--accent-gold); }
+
+/* 分屏与预览模式 */
+.split-pane { flex: 1; display: flex; gap: 16px; min-height: 0; }
+.split-pane .split-left { flex: 1; min-height: 0; }
+.split-pane .split-right { flex: 1; overflow-y: auto; padding: 16px; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+.full-preview { flex: 1; overflow-y: auto; padding: 16px; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+
+/* Markdown 预览内容样式 */
+.markdown-preview :deep(h1) { font-size: 24px; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+.markdown-preview :deep(h2) { font-size: 20px; margin: 14px 0 10px; }
+.markdown-preview :deep(h3) { font-size: 17px; margin: 12px 0 8px; }
+.markdown-preview :deep(h4) { font-size: 15px; margin: 10px 0 6px; }
+.markdown-preview :deep(p) { margin: 8px 0; line-height: 1.8; }
+.markdown-preview :deep(ul), .markdown-preview :deep(ol) { margin: 8px 0; padding-left: 24px; }
+.markdown-preview :deep(li) { margin: 4px 0; line-height: 1.7; }
+.markdown-preview :deep(blockquote) { margin: 10px 0; padding: 8px 16px; border-left: 4px solid var(--accent-gold); background: var(--hover-bg); color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+.markdown-preview :deep(a) { color: var(--accent-gold); text-decoration: none; }
+.markdown-preview :deep(a:hover) { text-decoration: underline; }
+.markdown-preview :deep(table) { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.markdown-preview :deep(th), .markdown-preview :deep(td) { padding: 8px 12px; border: 1px solid var(--border-color); text-align: left; }
+.markdown-preview :deep(th) { background: var(--hover-bg); font-weight: 600; }
+.markdown-preview :deep(img) { max-width: 100%; border-radius: 8px; }
+.markdown-preview :deep(hr) { border: none; border-top: 1px solid var(--border-color); margin: 16px 0; }
+.markdown-preview :deep(pre) { margin: 12px 0; padding: 14px; background: #0d1117; border: 1px solid var(--border-color); border-radius: 8px; overflow-x: auto; }
+.markdown-preview :deep(pre code) { font-family: 'Source Code Pro', 'Consolas', 'Monaco', monospace; font-size: 13px; line-height: 1.6; background: transparent; padding: 0; white-space: pre; }
+.markdown-preview :deep(code.hljs.inline) { font-family: 'Source Code Pro', 'Consolas', monospace; font-size: 0.9em; padding: 2px 6px; background: var(--hover-bg); border-radius: 4px; color: var(--accent-gold); }
 .editor-sidebar { width: 300px; background: var(--secondary-bg); border-left: 1px solid var(--border-color); padding: 16px; overflow-y: auto; }
 .ai-panel h3 { font-size: 16px; margin-bottom: 16px; }
 .provider-select { margin-bottom: 12px; }

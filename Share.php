@@ -334,6 +334,8 @@ function renderMarkdown($text) {
             margin-bottom: 20px;
         }
     </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -392,5 +394,6 @@ function renderMarkdown($text) {
             Powered by PHP笔记系统
         </div>
     </div>
+    <script>document.querySelectorAll('pre code').forEach(function(b){try{hljs.highlightElement(b)}catch(e){}});</script>
 </body>
 </html>

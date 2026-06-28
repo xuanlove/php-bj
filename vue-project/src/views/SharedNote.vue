@@ -20,7 +20,7 @@
 
     <div v-else-if="note" class="note-content">
       <h2>{{ note.title }}</h2>
-      <div class="note-body">{{ note.content }}</div>
+      <div class="note-body markdown-preview" v-html="renderedContent"></div>
       <div class="note-footer">
         <span>由 {{ shareInfo?.username || '未知用户' }} 分享</span>
         <span v-if="shareInfo?.view_count">浏览 {{ shareInfo.view_count }} 次</span>
@@ -31,11 +31,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { shareApi } from '@/api'
+import { renderMarkdown } from '@/utils/markdown'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
+
+const renderedContent = computed(() => renderMarkdown(note.value?.content || ''))
 
 const route = useRoute()
 const token = ref(route.params.token)
@@ -120,6 +123,20 @@ function formatDate(d) { return dayjs(d).format('YYYY-MM-DD HH:mm') }
 .password-form .input { margin-bottom: 12px; }
 .password-form .error { color: var(--danger); margin-bottom: 12px; }
 .note-content h2 { font-size: 24px; margin-bottom: 20px; }
-.note-body { font-size: 16px; line-height: 1.8; white-space: pre-wrap; }
+.note-body { font-size: 16px; line-height: 1.8; }
 .note-footer { display: flex; gap: 20px; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); font-size: 13px; color: var(--text-muted); }
+
+/* Markdown 渲染样式（与 NoteEditor 预览一致） */
+.markdown-preview :deep(h1) { font-size: 24px; margin: 16px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+.markdown-preview :deep(h2) { font-size: 20px; margin: 14px 0 10px; }
+.markdown-preview :deep(h3) { font-size: 17px; margin: 12px 0 8px; }
+.markdown-preview :deep(p) { margin: 8px 0; line-height: 1.8; }
+.markdown-preview :deep(ul), .markdown-preview :deep(ol) { margin: 8px 0; padding-left: 24px; }
+.markdown-preview :deep(blockquote) { margin: 10px 0; padding: 8px 16px; border-left: 4px solid var(--accent-gold); background: var(--hover-bg); color: var(--text-secondary); border-radius: 0 6px 6px 0; }
+.markdown-preview :deep(a) { color: var(--accent-gold); }
+.markdown-preview :deep(table) { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.markdown-preview :deep(th), .markdown-preview :deep(td) { padding: 8px 12px; border: 1px solid var(--border-color); text-align: left; }
+.markdown-preview :deep(pre) { margin: 12px 0; padding: 14px; background: #0d1117; border: 1px solid var(--border-color); border-radius: 8px; overflow-x: auto; }
+.markdown-preview :deep(pre code) { font-family: 'Source Code Pro', monospace; font-size: 13px; line-height: 1.6; white-space: pre; }
+.markdown-preview :deep(code.hljs.inline) { font-family: 'Source Code Pro', monospace; padding: 2px 6px; background: var(--hover-bg); border-radius: 4px; color: var(--accent-gold); }
 </style>
