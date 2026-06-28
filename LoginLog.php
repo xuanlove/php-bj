@@ -272,10 +272,10 @@ class LoginLog {
             $cutoffDate = date('Y-m-d H:i:s', $cutoff);
             
             $stmt = $this->db->prepare(
-                "DELETE FROM login_logs 
-                 WHERE (username = ? OR ip_address = ?) 
-                 AND login_status = 'failed' 
-                 AND created_at < ?"
+                "DELETE FROM login_logs
+                 WHERE (username = ? OR ip_address = ?)
+                 AND login_status = 'failed'
+                 AND created_at > ?"
             );
             $stmt->execute([$username, $ipAddress, $cutoffDate]);
         } catch (Exception $e) {

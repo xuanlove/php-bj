@@ -15,7 +15,7 @@ require_once __DIR__ . '/ShareClass.php';
 // 处理下载请求（必须在任何输出之前处理）
 $token = $_GET['token'] ?? '';
 
-if (!empty($token) && (isset($_GET['download']) && $_GET['download'] == 1) || (isset($_POST['download']) && $_POST['download'] == 1)) {
+if (!empty($token) && ((isset($_GET['download']) && $_GET['download'] == 1) || (isset($_POST['download']) && $_POST['download'] == 1))) {
     $share = new Share();
     $shareInfo = $share->getShareInfo($token);
     
@@ -38,8 +38,10 @@ if (!empty($token) && (isset($_GET['download']) && $_GET['download'] == 1) || (i
             die('请先在页面中验证密码');
         }
     }
-    
-    $result = $share->getSharedContent($token);
+
+    // 下载分支：session 验证已在上文完成，传入 $sessionVerified=true 跳过密码检查，避免已验证用户仍被 requires_password 拦截
+    $sessionVerified = isset($_SESSION['share_token_verified']) && $_SESSION['share_token_verified'] === $token;
+    $result = $share->getSharedContent($token, null, $sessionVerified);
     
     if ($result['success']) {
         // 安全处理文件名：移除路径分隔符和特殊字符，防止 CRLF 注入

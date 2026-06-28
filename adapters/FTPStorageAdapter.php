@@ -49,7 +49,9 @@ class FTPStorageAdapter implements StorageAdapter {
         if (!empty($this->path) && $this->path !== '/') {
             if (!@ftp_chdir($this->conn, $this->path)) {
                 $this->ensureDir($this->path);
-                ftp_chdir($this->conn, $this->path);
+                if (!@ftp_chdir($this->conn, $this->path)) {
+                    throw new Exception("无法切换到目录: {$this->path}");
+                }
             }
         }
     }
@@ -60,8 +62,8 @@ class FTPStorageAdapter implements StorageAdapter {
         foreach ($dirs as $dir) {
             $current .= '/' . $dir;
             if (!@ftp_chdir($this->conn, $current)) {
-                ftp_mkdir($this->conn, $dir);
-                ftp_chdir($this->conn, $dir);
+                @ftp_mkdir($this->conn, $current);
+                @ftp_chdir($this->conn, $current);
             }
         }
     }
@@ -81,6 +83,9 @@ class FTPStorageAdapter implements StorageAdapter {
     }
 
     public function upload(string $localFile, string $remoteName): array {
+        if (str_contains($remoteName, '..') || str_starts_with($remoteName, '/')) {
+            return ['success' => false, 'message' => '非法的远程文件名'];
+        }
         try {
             $this->connect();
             $upload = ftp_put($this->conn, $remoteName, $localFile, FTP_BINARY);
@@ -132,6 +137,9 @@ class FTPStorageAdapter implements StorageAdapter {
     }
 
     public function delete(string $remoteName): array {
+        if (str_contains($remoteName, '..') || str_starts_with($remoteName, '/')) {
+            return ['success' => false, 'message' => '非法的远程文件名'];
+        }
         try {
             $this->connect();
             $ok = ftp_delete($this->conn, $remoteName);

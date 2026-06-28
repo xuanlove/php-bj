@@ -60,7 +60,7 @@ class TeamSpaces {
                 'message' => '团队创建成功'
             ];
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) { $this->db->rollBack(); }
             error_log("创建团队失败: " . $e->getMessage());
             return ['success' => false, 'message' => '创建失败，请稍后重试'];
         }
@@ -233,7 +233,11 @@ class TeamSpaces {
 
         $target_user_id = intval($data['user_id'] ?? 0);
         $role = $data['role'] ?? 'member';
-        
+
+        if (!in_array($role, ['admin', 'member'])) {
+            return ['success' => false, 'message' => '无效的角色'];
+        }
+
         try {
             $stmt = $this->db->prepare(
                 "INSERT INTO team_members (team_id, user_id, role, invited_by) VALUES (?, ?, ?, ?)"
@@ -325,7 +329,7 @@ class TeamSpaces {
             $this->db->commit();
             return ['success' => true, 'message' => '已加入团队'];
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) { $this->db->rollBack(); }
             return ['success' => false, 'message' => '加入失败'];
         }
     }

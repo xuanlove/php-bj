@@ -63,13 +63,21 @@ class TencentCOSAdapter implements StorageAdapter {
 
     public function upload(string $localFile, string $remoteName): array {
         try {
-            $key = $this->prefix . $remoteName;
-            $this->getClient()->putObject([
-                'Bucket' => $this->bucket,
-                'Key' => $key,
-                'Body' => fopen($localFile, 'r'),
-            ]);
-            return ['success' => true, 'message' => '上传成功'];
+            $key = $this->prefix . '/' . $remoteName;
+            $fp = fopen($localFile, 'r');
+            if (!$fp) {
+                return ['success' => false, 'message' => '无法打开本地文件'];
+            }
+            try {
+                $this->getClient()->putObject([
+                    'Bucket' => $this->bucket,
+                    'Key' => $key,
+                    'Body' => $fp,
+                ]);
+                return ['success' => true, 'message' => '上传成功'];
+            } finally {
+                fclose($fp);
+            }
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'COS 上传失败: ' . $e->getMessage()];
         }

@@ -80,6 +80,9 @@ class SFTPStorageAdapter implements StorageAdapter {
     }
 
     public function upload(string $localFile, string $remoteName): array {
+        if (str_contains($remoteName, '..') || str_starts_with($remoteName, '/')) {
+            return ['success' => false, 'message' => '非法的远程文件名'];
+        }
         try {
             $this->connect();
             $remotePath = rtrim($this->path, '/') . '/' . $remoteName;
@@ -125,6 +128,9 @@ class SFTPStorageAdapter implements StorageAdapter {
     }
 
     public function delete(string $remoteName): array {
+        if (str_contains($remoteName, '..') || str_starts_with($remoteName, '/')) {
+            return ['success' => false, 'message' => '非法的远程文件名'];
+        }
         try {
             $this->connect();
             $remotePath = rtrim($this->path, '/') . '/' . $remoteName;

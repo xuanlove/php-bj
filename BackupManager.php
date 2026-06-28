@@ -24,6 +24,8 @@ class BackupManager {
                 $cfg['credentials'] = $this->decryptCredentials($cfg['credentials_json'] ?? '{}');
                 // 掩码敏感字段
                 $cfg['masked_credentials'] = $this->maskCredentials($cfg['credentials']);
+                // 移除敏感字段，仅保留掩码后的凭证
+                unset($cfg['credentials'], $cfg['credentials_json']);
             }
             unset($cfg);
 
@@ -113,15 +115,15 @@ class BackupManager {
                 }
             }
 
-            // 如果提供了新凭证则更新
-            $storageType = $data['storage_type'] ?? null;
-            if (!$storageType) {
-                $stmt = $this->db->prepare("SELECT storage_type FROM backup_configs WHERE id = ?");
-                $stmt->execute([$id]);
-                $row = $stmt->fetch();
-                $storageType = $row['storage_type'] ?? 'ftp';
-            }
+            // 始终从数据库获取当前 storage_type 和 backup_frequency
+            $stmt = $this->db->prepare("SELECT storage_type, backup_frequency FROM backup_configs WHERE id = ?");
+            $stmt->execute([$id]);
+            $currentConfig = $stmt->fetch();
+            $currentStorageType = $currentConfig['storage_type'] ?? 'ftp';
+            $currentFrequency = $currentConfig['backup_frequency'] ?? 'weekly';
 
+            // 如果提供了新凭证则更新
+            $storageType = $data['storage_type'] ?? $currentStorageType;
             if ($this->hasCredentialFields($storageType, $data)) {
                 $credentials = $this->buildCredentials($storageType, $data);
                 $credentialsJson = encryptData(json_encode($credentials, JSON_UNESCAPED_UNICODE));
@@ -129,9 +131,11 @@ class BackupManager {
                 $values[] = $credentialsJson;
             }
 
-            if ($storageType !== ($data['storage_type'] ?? null)) {
+            // 当 storage_type 或 backup_frequency 实际变化时才重新计算 next_backup
+            if (($data['storage_type'] ?? null) !== null || ($data['backup_frequency'] ?? null) !== null) {
+                $newFrequency = $data['backup_frequency'] ?? $currentFrequency;
                 $updates[] = "`next_backup` = ?";
-                $values[] = $this->calculateNextBackup($data['backup_frequency'] ?? 'weekly');
+                $values[] = $this->calculateNextBackup($newFrequency);
             }
 
             if (empty($updates)) {
@@ -309,33 +313,39 @@ class BackupManager {
 
         $zipPath = "{$backupDir}/backup_" . date('Y-m-d_H-i-s') . ".zip";
         $zip = new ZipArchive();
-        if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
-            throw new Exception('无法创建 ZIP 文件');
+        try {
+            if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
+                throw new Exception('无法创建 ZIP 文件');
+            }
+
+            // 1. 数据库
+            $dbBackup = $this->backupDatabase();
+            $zip->addFromString('database.sql', $dbBackup);
+
+            // 2. 附件目录
+            $this->addDirectoryToZip($zip, ATTACHMENT_DIR, 'attachments');
+
+            // 3. 上传目录（含笔记图片等）
+            $uploadDir = defined('UPLOAD_DIR') ? UPLOAD_DIR : __DIR__ . '/uploads/';
+            if (is_dir($uploadDir)) {
+                $this->addDirectoryToZip($zip, $uploadDir, 'uploads');
+            }
+
+            $zip->close();
+
+            // 将ZIP文件移到临时目录外，避免清理时被删除
+            $finalZipPath = sys_get_temp_dir() . '/' . basename($zipPath);
+            rename($zipPath, $finalZipPath);
+
+            return $finalZipPath;
+        } finally {
+            if (isset($zip) && $zip instanceof ZipArchive) {
+                @$zip->close();
+            }
+            if (isset($backupDir) && is_dir($backupDir)) {
+                $this->removeDirectory($backupDir);
+            }
         }
-
-        // 1. 数据库
-        $dbBackup = $this->backupDatabase();
-        $zip->addFromString('database.sql', $dbBackup);
-
-        // 2. 附件目录
-        $this->addDirectoryToZip($zip, ATTACHMENT_DIR, 'attachments');
-
-        // 3. 上传目录（含笔记图片等）
-        $uploadDir = defined('UPLOAD_DIR') ? UPLOAD_DIR : __DIR__ . '/uploads/';
-        if (is_dir($uploadDir)) {
-            $this->addDirectoryToZip($zip, $uploadDir, 'uploads');
-        }
-
-        $zip->close();
-
-        // 将ZIP文件移到临时目录外，避免清理时被删除
-        $finalZipPath = sys_get_temp_dir() . '/' . basename($zipPath);
-        rename($zipPath, $finalZipPath);
-
-        // 清理临时目录
-        $this->removeDirectory($backupDir);
-
-        return $finalZipPath;
     }
 
     private function backupDatabase(): string {

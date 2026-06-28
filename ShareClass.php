@@ -160,12 +160,13 @@ class Share {
     
     /**
      * 获取分享内容（密码验证后）
-     * 
+     *
      * @param string $token 分享token
      * @param string|null $password 密码（可选）
+     * @param bool $sessionVerified 调用方已完成 session 验证时传 true，跳过密码检查（用于下载流程）
      * @return array
      */
-    public function getSharedContent($token, $password = null) {
+    public function getSharedContent($token, $password = null, $sessionVerified = false) {
         try {
             $stmt = $this->db->prepare(
                 "SELECT sn.*, n.title, n.content, n.content_type 
@@ -185,8 +186,8 @@ class Share {
                 return ['success' => false, 'message' => '分享链接已过期'];
             }
             
-            // 验证密码
-            if (!empty($share['password_hash'])) {
+            // 验证密码：若调用方已完成 session 验证（如下载流程），则跳过密码检查，避免已验证用户仍被拦截
+            if (!empty($share['password_hash']) && !$sessionVerified) {
                 if ($password === null) {
                     return ['success' => false, 'message' => '需要密码', 'requires_password' => true];
                 }

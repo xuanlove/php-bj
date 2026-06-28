@@ -31,23 +31,56 @@ class UserSettings {
             );
             $stmt->execute([$user_id]);
             $settings = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$settings) {
                 // 创建默认设置
                 $this->createDefaultSettings($user_id);
-                return $this->getSettings($user_id);
+                // 再获取一次（非递归调用）
+                $stmt = $this->db->prepare(
+                    "SELECT * FROM user_settings WHERE user_id = ?"
+                );
+                $stmt->execute([$user_id]);
+                $settings = $stmt->fetch(PDO::FETCH_ASSOC);
             }
-            
+
+            if (!$settings) {
+                // 仍未找到，直接返回默认设置
+                return ['success' => true, 'settings' => $this->getDefaultSettings()];
+            }
+
             return [
                 'success' => true,
                 'settings' => $settings,
                 'message' => '获取设置成功'
             ];
-            
+
         } catch (Exception $e) {
             error_log("获取用户设置失败: " . $e->getMessage());
             return ['success' => false, 'message' => '获取设置失败'];
         }
+    }
+
+    /**
+     * 获取默认设置（不依赖数据库）
+     *
+     * @return array
+     */
+    private function getDefaultSettings() {
+        return [
+            'user_id' => null,
+            'theme' => 'dark',
+            'editor_font_size' => 14,
+            'editor_font_family' => 'Source Code Pro',
+            'editor_theme' => 'default',
+            'editor_tab_size' => 4,
+            'accent_color' => '#d4af37',
+            'auto_save' => 1,
+            'auto_save_interval' => 30,
+            'email_notifications' => 1,
+            'language' => 'zh-CN',
+            'timezone' => 'Asia/Shanghai',
+            'template' => 'default'
+        ];
     }
     
     /**

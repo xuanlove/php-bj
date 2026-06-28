@@ -76,9 +76,17 @@ class AliyunOSSAdapter implements StorageAdapter {
     public function upload(string $localFile, string $remoteName): array {
         try {
             $client = $this->getClient();
-            $objectName = $this->prefix . $remoteName;
-            $client->putObject($this->bucket, $objectName, fopen($localFile, 'r'));
-            return ['success' => true, 'message' => '上传成功'];
+            $objectName = $this->prefix . '/' . $remoteName;
+            $fp = fopen($localFile, 'r');
+            if (!$fp) {
+                return ['success' => false, 'message' => '无法打开本地文件'];
+            }
+            try {
+                $client->putObject($this->bucket, $objectName, $fp);
+                return ['success' => true, 'message' => '上传成功'];
+            } finally {
+                fclose($fp);
+            }
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'OSS 上传失败: ' . $e->getMessage()];
         }
