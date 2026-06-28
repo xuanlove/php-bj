@@ -2,7 +2,43 @@
 // 全局异常处理由 config.php 中的 ErrorHandler::init() 统一管理
 // 不再在此处重复注册，避免覆盖
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+
+// 获取请求方法和路径（早期获取，用于安装检测）
+$method = $_SERVER['REQUEST_METHOD'];
+$request = isset($_GET['action']) ? $_GET['action'] : '';
+
+// ========================================
+// 早期安装状态检测与拦截（在任何 require / DB 连接之前）
+// 未安装时仅放行白名单接口，避免触发 DB 连接失败污染响应
+// ========================================
+$systemInstalled = file_exists(__DIR__ . '/install.lock');
+
+if ($request === 'check_install') {
+    echo json_encode([
+        'success' => true,
+        'installed' => $systemInstalled,
+        'message' => $systemInstalled ? '系统已安装' : '系统未安装，请先完成安装',
+        'redirect' => $systemInstalled ? null : 'install.html'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (!$systemInstalled) {
+    $installWhitelist = ['check_install', 'health', 'get_csrf_token'];
+    if (!in_array($request, $installWhitelist, true)) {
+        http_response_code(503);
+        echo json_encode([
+            'success' => false,
+            'message' => '系统尚未安装，请先完成安装向导',
+            'error_code' => 'SYSTEM_NOT_INSTALLED',
+            'installed' => false,
+            'redirect' => 'install.html'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
 require_once 'config.php';
 require_once 'Auth.php';
 require_once 'Notes.php';
@@ -25,22 +61,35 @@ require_once 'routes/middleware.php';
 require_once 'TemplateManager.php';
 require_once 'Tags.php';
 
-// 获取请求方法和路径
-$method = $_SERVER['REQUEST_METHOD'];
-$request = isset($_GET['action']) ? $_GET['action'] : '';
-
-// 执行中间件
-runMiddlewares($request);
-
-// 安装状态检测接口（无需登录）
-if ($request === 'check_install') {
-    $installed = file_exists(__DIR__ . '/install.lock');
-    sendResponse([
-        'success' => true,
-        'installed' => $installed,
-        'message' => $installed ? '系统已安装' : '系统未安装，请先完成安装'
-    ]);
+// 响应函数
+function sendResponse($data) {
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
 }
+
+// ========================================
+// 未安装时白名单接口的早期处理（绕过中间件，避免 RateLimiter 触发 DB 连接失败）
+// ========================================
+if (!$systemInstalled) {
+    if ($request === 'get_csrf_token') {
+        sendResponse(['success' => true, 'token' => generateCSRFToken()]);
+    }
+    if ($request === 'health') {
+        sendResponse([
+            'status' => 'degraded',
+            'timestamp' => time(),
+            'version' => '2.0',
+            'checks' => [
+                'php' => ['status' => version_compare(PHP_VERSION, '8.0', '>=') ? 'ok' : 'warning', 'version' => PHP_VERSION],
+                'database' => ['status' => 'error', 'message' => '系统未安装']
+            ],
+            'message' => '系统未安装'
+        ]);
+    }
+}
+
+// 执行中间件（已确保系统安装，DB 可用）
+runMiddlewares($request);
 
 // 健康检查接口（无需登录，用于监控）
 if ($request === 'health') {
@@ -89,14 +138,8 @@ if ($request === 'health') {
 }
 
 // 初始化数据库连接（延迟初始化，确保数据库存在且已迁移）
-// 注意：check_install接口不需要数据库，所以放在这个位置
+// 注意：check_install 接口不需要数据库，已在上游早期处理
 initDatabase();
-
-// 响应函数
-function sendResponse($data) {
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
-    exit;
-}
 
 // CSRF验证函数（用于POST/PUT/DELETE请求）
 function verifyCSRF() {

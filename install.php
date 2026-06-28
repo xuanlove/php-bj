@@ -360,7 +360,19 @@ function createAdmin() {
     if (empty($username) || empty($email) || empty($password)) {
         return ['success' => false, 'message' => '用户名、邮箱和密码不能为空'];
     }
-    
+
+    // 校验管理员凭据格式，防止创建弱密码/非法用户名
+    if (!validateUsername($username)) {
+        return ['success' => false, 'message' => '用户名只能包含字母、数字、下划线，3-20位'];
+    }
+    if (!validateEmail($email)) {
+        return ['success' => false, 'message' => '邮箱格式不正确'];
+    }
+    $pwdCheck = validatePassword($password);
+    if (!$pwdCheck['valid']) {
+        return ['success' => false, 'message' => $pwdCheck['message']];
+    }
+
     try {
         $db = Database::getInstance()->getConnection();
         

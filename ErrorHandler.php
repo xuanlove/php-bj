@@ -243,11 +243,14 @@ class ErrorHandler {
             case E_NOTICE:
             case E_USER_NOTICE:
                 return self::LEVEL_INFO;
-            case E_STRICT:
             case E_DEPRECATED:
             case E_USER_DEPRECATED:
                 return self::LEVEL_DEBUG;
             default:
+                // E_STRICT 在 PHP 8.4+ 已移除，引用未定义常量会触发 deprecated 警告
+                if (defined('E_STRICT') && $severity === E_STRICT) {
+                    return self::LEVEL_DEBUG;
+                }
                 return self::LEVEL_INFO;
         }
     }

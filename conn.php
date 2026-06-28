@@ -71,8 +71,10 @@ define('ENCRYPTION_KEY', getenv('ENCRYPTION_KEY') ?: '');
 if (empty(ENCRYPTION_KEY)) {
     // 检查是否是安装向导请求（install.php 不需要加密密钥）
     $isInstallRequest = isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], 'install.php') !== false;
+    // 未安装时（install.lock 不存在）也放行，由 api.php 统一拦截并引导到安装页
+    $systemNotInstalled = !file_exists(__DIR__ . '/install.lock');
 
-    if (!$isInstallRequest) {
+    if (!$isInstallRequest && !$systemNotInstalled) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(500);
         echo json_encode([
