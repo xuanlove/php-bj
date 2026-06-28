@@ -30,19 +30,19 @@ class VersionControl {
      */
     public function saveVersion($note_id, $user_id, $noteData, $changeSummary = '') {
         try {
-            // 获取当前最大版本号
+            // 开始事务（SELECT MAX 必须在事务内，配合唯一约束避免并发版本号冲突）
+            $this->db->beginTransaction();
+
+            // 获取当前最大版本号（在事务内读取，确保与后续 INSERT 串行化）
             $stmt = $this->db->prepare(
-                "SELECT COALESCE(MAX(version_number), 0) as max_version 
-                 FROM note_versions 
+                "SELECT COALESCE(MAX(version_number), 0) as max_version
+                 FROM note_versions
                  WHERE note_id = ?"
             );
             $stmt->execute([$note_id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             $newVersion = $result['max_version'] + 1;
-            
-            // 开始事务
-            $this->db->beginTransaction();
-            
+
             // 保存新版本
             $stmt = $this->db->prepare(
                 "INSERT INTO note_versions 
