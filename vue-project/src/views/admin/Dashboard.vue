@@ -16,6 +16,8 @@
       <div class="stat-card"><div class="stat-value">{{ stats.total_attachments || '...' }}</div><div class="stat-label">附件数</div></div>
       <div class="stat-card"><div class="stat-value">{{ stats.ai_interactions || '...' }}</div><div class="stat-label">AI调用</div></div>
     </div>
+    <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
+    <div v-else-if="error" class="error">{{ error }}</div>
   </div>
 </template>
 <script setup>
@@ -23,10 +25,20 @@ import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api'
 
 const stats = ref({})
+const loading = ref(false)
+const error = ref('')
 
 onMounted(async () => {
-  const r = await adminApi.stats()
-  if (r.success) stats.value = r.data
+  loading.value = true
+  try {
+    const r = await adminApi.stats()
+    if (r.success) stats.value = r.data
+    else error.value = r.message || '加载统计数据失败'
+  } catch (e) {
+    error.value = e.message || '加载统计数据失败'
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 <style scoped>
@@ -38,4 +50,6 @@ onMounted(async () => {
 .stat-card { padding: 24px; background: var(--secondary-bg); border: 1px solid var(--border-color); border-radius: 12px; text-align: center; }
 .stat-value { font-size: 36px; font-weight: 700; color: var(--accent-gold); }
 .stat-label { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
+.loading { text-align: center; padding: 40px; color: var(--text-muted); }
+.error { text-align: center; padding: 40px; color: var(--danger, #e74c3c); }
 </style>

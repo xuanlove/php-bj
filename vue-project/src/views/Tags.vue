@@ -2,7 +2,7 @@
   <div class="page">
     <h1>标签管理</h1>
     <div class="tags-grid">
-      <div v-for="tag in tags" :key="tag.id" class="tag-card" @click="router.push('/?search=#'+tag.name)">
+      <div v-for="tag in tags" :key="tag.id" class="tag-card" @click="router.push({ path: '/', query: { search: '#' + tag.name } })">
         <i class="fas fa-tag"></i>
         <span class="tag-name">{{ tag.name }}</span>
         <small>{{ tag.note_count || 0 }} 篇</small>

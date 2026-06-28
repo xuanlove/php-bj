@@ -124,6 +124,10 @@ onMounted(async () => {
 })
 
 function applyThemeToDOM(t) {
+  if (t === 'auto') {
+    const isLight = window.matchMedia('(prefers-color-scheme: light)').matches
+    t = isLight ? 'light' : 'dark'
+  }
   document.documentElement.setAttribute('data-theme', t)
   if (t === 'light') {
     document.documentElement.style.setProperty('--primary-bg', '#ffffff')
@@ -167,8 +171,8 @@ async function fetchTwoFactorStatus() {
     if (r.success) {
       twoFactorEnabled.value = r.enabled
     }
+    twoFactorStatus.value = 'loaded'
   } catch (e) { twoFactorStatus.value = 'error' }
-  twoFactorStatus.value = 'loaded'
 }
 
 async function generate2FA() {

@@ -81,7 +81,9 @@ class VersionControl {
             ];
             
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("保存版本失败: " . $e->getMessage());
             return ['success' => false, 'message' => '保存版本失败'];
         }
@@ -197,7 +199,14 @@ class VersionControl {
             if (!$version) {
                 return ['success' => false, 'message' => '版本不存在'];
             }
-            
+
+            // 验证笔记所有权
+            $ownerStmt = $this->db->prepare("SELECT id FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
+            $ownerStmt->execute([$note_id, $user_id]);
+            if (!$ownerStmt->fetch()) {
+                return ['success' => false, 'message' => '无权操作此笔记或笔记不存在'];
+            }
+
             // 开始事务
             $this->db->beginTransaction();
             

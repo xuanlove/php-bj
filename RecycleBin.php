@@ -70,7 +70,9 @@ class RecycleBin {
             ];
             
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("移动到回收站失败: " . $e->getMessage());
             return ['success' => false, 'message' => '移动到回收站失败'];
         }
@@ -169,7 +171,9 @@ class RecycleBin {
             return ['success' => true, 'message' => '笔记已永久删除'];
             
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("永久删除笔记失败: " . $e->getMessage());
             return ['success' => false, 'message' => '永久删除笔记失败'];
         }

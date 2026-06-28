@@ -27,7 +27,7 @@ api.interceptors.request.use(async (config) => {
 })
 
 api.interceptors.response.use(r => r.data, async e => {
-  if (e.status === 401) window.location.href = '/#/login'
+  if (e.response?.status === 401) window.location.href = '/#/login'
   return e.response?.data || { success: false, message: '网络错误' }
 })
 
@@ -50,6 +50,7 @@ export const notesApi = {
   delete: id => api.post('/', { action: 'notes_delete', note_id: id }),
   search: k => api.get('/', { params: { action: 'notes_search', keyword: k } }),
   noteExport: (id, fmt) => api.get('/', { params: { action: 'notes_export', note_id: id, format: fmt } }),
+  batchExport: (ids, format) => api.post('/', { action: 'notes_batch_export', note_ids: ids, format }),
 }
 
 export const foldersApi = {

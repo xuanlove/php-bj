@@ -97,7 +97,7 @@
       </header>
 
       <div class="content-area">
-        <slot />
+        <router-view />
       </div>
     </main>
 

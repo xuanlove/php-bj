@@ -24,7 +24,7 @@ class Tags {
                 t.name,
                 t.color,
                 t.created_at,
-                COUNT(nt.note_id) as note_count
+                COUNT(n.id) as note_count
             FROM note_tags t
             LEFT JOIN note_tag_mapping nt ON t.id = nt.tag_id
             LEFT JOIN notes n ON nt.note_id = n.id AND n.user_id = ?
@@ -119,21 +119,27 @@ class Tags {
             return ['success' => false, 'message' => '标签不存在'];
         }
         
+        $this->db->beginTransaction();
         try {
             // 先删除标签关联
             $deleteMapping = $this->db->prepare("DELETE FROM note_tag_mapping WHERE tag_id = ?");
             $deleteMapping->execute([$tag_id]);
-            
+
             // 再删除标签
             $stmt = $this->db->prepare("DELETE FROM note_tags WHERE id = ? AND user_id = ?");
             $stmt->execute([$tag_id, $user_id]);
-            
+
+            $this->db->commit();
+
             logSecurityEvent('tag_deleted', ['user_id' => $user_id, 'tag_id' => $tag_id]);
-            
+
             return ['success' => true, 'message' => '标签删除成功'];
         } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("删除标签失败: " . $e->getMessage());
-            return ['success' => false, 'message' => '删除失败'];
+            return ['success' => false, 'message' => '删除失败: ' . $e->getMessage()];
         }
     }
     

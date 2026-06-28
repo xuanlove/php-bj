@@ -29,8 +29,8 @@
     <div class="section">
       <h3>两步验证</h3>
       <div class="settings-actions">
-        <button class="btn btn-primary" @click="enable2FA">启用两步验证</button>
-        <button class="btn btn-danger" @click="disable2FA">禁用两步验证</button>
+        <button v-if="!twoFactorEnabled" class="btn btn-primary" @click="enable2FA" :disabled="twofaLoading">启用两步验证</button>
+        <button v-else class="btn btn-danger" @click="disable2FA" :disabled="twofaLoading">禁用两步验证</button>
       </div>
     </div>
   </div>
@@ -46,16 +46,22 @@ const { user } = storeToRefs(userStore)
 const dirty = ref(false)
 const saving = ref(false)
 const changing = ref(false)
+const twoFactorEnabled = ref(false)
+const twofaLoading = ref(false)
 
 const form = ref({ username: '', email: '', full_name: '' })
 const pw = ref({ old: '', new: '', confirm: '' })
 
 const userInitials = computed(() => user.value?.username?.slice(0, 2).toUpperCase() || '?')
 
-onMounted(() => {
+onMounted(async () => {
   if (user.value) {
     form.value = { username: user.value.username, email: user.value.email, full_name: user.value.full_name || '' }
   }
+  try {
+    const r = await twoFactorApi.status()
+    if (r.success) twoFactorEnabled.value = r.enabled
+  } catch (e) { /* ignore */ }
 })
 
 async function saveProfile() {
@@ -76,22 +82,30 @@ async function changePw() {
 }
 
 async function enable2FA() {
-  const r = await twoFactorApi.generate()
-  if (r.success) {
-    const code = prompt('输入Google Authenticator生成的验证码:\n' + r.otpauth_url)
-    if (code) {
-      const res = await twoFactorApi.enable(r.secret, code)
-      alert(res.success ? '已启用' : res.message)
+  twofaLoading.value = true
+  try {
+    const r = await twoFactorApi.generate()
+    if (r.success) {
+      const code = prompt('输入Google Authenticator生成的验证码:\n' + r.otpauth_url)
+      if (code) {
+        const res = await twoFactorApi.enable(r.secret, code)
+        if (res.success) twoFactorEnabled.value = true
+        alert(res.success ? '已启用' : res.message)
+      }
     }
-  }
+  } finally { twofaLoading.value = false }
 }
 
 async function disable2FA() {
-  const code = prompt('输入验证码以禁用')
-  if (code) {
-    const res = await twoFactorApi.disable(code)
-    alert(res.success ? '已禁用' : res.message)
-  }
+  twofaLoading.value = true
+  try {
+    const code = prompt('输入验证码以禁用')
+    if (code) {
+      const res = await twoFactorApi.disable(code)
+      if (res.success) twoFactorEnabled.value = false
+      alert(res.success ? '已禁用' : res.message)
+    }
+  } finally { twofaLoading.value = false }
 }
 </script>
 <style scoped>

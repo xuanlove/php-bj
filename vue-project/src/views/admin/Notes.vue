@@ -19,7 +19,7 @@
           <td>{{ n.content_type }}</td><td>{{ formatDate(n.updated_at) }}</td>
           <td>
             <button class="btn-sm btn-primary" @click="router.push('/note/'+n.id)">查看</button>
-            <button class="btn-sm btn-danger" @click="deleteNote(n.id)">删除</button>
+            <button class="btn-sm btn-danger" :disabled="deletingId === n.id" @click="deleteNote(n.id)">{{ deletingId === n.id ? '删除中...' : '删除' }}</button>
           </td>
         </tr>
       </tbody>
@@ -35,6 +35,7 @@ import dayjs from 'dayjs'
 const router = useRouter()
 const notes = ref([])
 const loading = ref(false)
+const deletingId = ref(null)
 
 onMounted(async () => {
   loading.value = true
@@ -47,9 +48,14 @@ function formatDate(d) { return dayjs(d).format('MM-DD HH:mm') }
 
 async function deleteNote(id) {
   if (!confirm('确定删除此笔记？')) return
-  const r = await adminApi.deleteNote(id)
-  if (r.success) notes.value = notes.value.filter(x => x.id !== id)
-  else alert(r.message)
+  deletingId.value = id
+  try {
+    const r = await adminApi.deleteNote(id)
+    if (r.success) notes.value = notes.value.filter(x => x.id !== id)
+    else alert(r.message)
+  } finally {
+    deletingId.value = null
+  }
 }
 </script>
 <style scoped>

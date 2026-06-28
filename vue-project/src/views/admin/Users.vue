@@ -20,7 +20,7 @@
           <td>{{ u.status }}</td>
           <td>{{ formatDate(u.created_at) }}</td>
           <td>
-            <button class="btn-sm" :class="u.status === 'suspended' || u.status === 'disabled' ? 'btn-primary' : 'btn-secondary'" @click="toggleStatus(u)">{{ u.status === 'active' ? '封禁' : '解封' }}</button>
+            <button class="btn-sm" :class="u.status === 'suspended' || u.status === 'disabled' ? 'btn-primary' : 'btn-secondary'" :disabled="togglingId === u.id" @click="toggleStatus(u)">{{ togglingId === u.id ? '处理中...' : (u.status === 'active' ? '封禁' : '解封') }}</button>
             <button class="btn-sm btn-danger" @click="deleteUser(u.id)">删除</button>
           </td>
         </tr>
@@ -35,6 +35,7 @@ import dayjs from 'dayjs'
 
 const users = ref([])
 const loading = ref(false)
+const togglingId = ref(null)
 
 onMounted(async () => {
   loading.value = true
@@ -46,12 +47,15 @@ onMounted(async () => {
 function formatDate(d) { return dayjs(d).format('YYYY-MM-DD') }
 
 async function toggleStatus(u) {
-  const statusOrder = ['active', 'suspended', 'disabled']
-  const idx = statusOrder.indexOf(u.status)
-  const newStatus = statusOrder[(idx + 1) % statusOrder.length]
-  const r = await adminApi.toggleUserStatus(u.id, newStatus)
-  if (r.success) u.status = newStatus
-  else alert(r.message)
+  const newStatus = u.status === 'active' ? 'suspended' : 'active'
+  togglingId.value = u.id
+  try {
+    const r = await adminApi.toggleUserStatus(u.id, newStatus)
+    if (r.success) u.status = newStatus
+    else alert(r.message)
+  } finally {
+    togglingId.value = null
+  }
 }
 
 async function deleteUser(id) {

@@ -19,7 +19,7 @@
           <small :class="cfg.enabled ? 'text-success' : 'text-muted'">{{ cfg.enabled ? '已启用' : '已禁用' }}</small>
         </div>
         <div class="backup-actions">
-          <button class="btn-sm btn-primary" @click="performBackup(cfg.id)">备份</button>
+          <button class="btn-sm btn-primary" :disabled="performingId === cfg.id" @click="performBackup(cfg.id)">{{ performingId === cfg.id ? '备份中...' : '备份' }}</button>
           <button class="btn-sm btn-secondary" @click="deleteConfig(cfg.id)">删除</button>
         </div>
       </div>
@@ -33,6 +33,7 @@ import { adminApi } from '@/api'
 
 const configs = ref([])
 const loading = ref(false)
+const performingId = ref(null)
 
 onMounted(async () => {
   loading.value = true
@@ -42,8 +43,13 @@ onMounted(async () => {
 })
 
 async function performBackup(id) {
-  const r = await adminApi.performBackup(id)
-  alert(r.success ? '备份已启动' : r.message)
+  performingId.value = id
+  try {
+    const r = await adminApi.performBackup(id)
+    alert(r.success ? '备份已启动' : r.message)
+  } finally {
+    performingId.value = null
+  }
 }
 
 async function deleteConfig(id) {

@@ -71,7 +71,7 @@
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" @click="showShareModal = false">取消</button>
-          <button class="btn btn-primary" @click="createShare">创建分享</button>
+          <button class="btn btn-primary" @click="createShare" :disabled="sharing">{{ sharing ? '创建中...' : '创建分享' }}</button>
         </div>
         <div v-if="shareUrl" class="share-result">
           <p>分享链接:</p>
@@ -92,7 +92,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useNotesStore } from '@/stores/notes'
 import { aiApi, shareApi } from '@/api'
@@ -119,9 +119,10 @@ const sharePassword = ref('')
 const shareExpires = ref(0)
 const shareAllowDownload = ref(true)
 const shareUrl = ref('')
+const sharing = ref(false)
 let autoTimer = null
 
-onMounted(async () => {
+async function loadNote() {
   if (noteId.value !== 'new') {
     const r = await notesStore.fetchNote(noteId.value)
     if (r.success && r.note) {
@@ -129,10 +130,25 @@ onMounted(async () => {
       content.value = r.note.content || ''
     }
   }
+}
+
+onMounted(async () => {
+  await loadNote()
   try {
     const cfg = await aiApi.config()
     if (cfg.success && cfg.default_provider) aiProvider.value = cfg.default_provider
   } catch (e) { /* use default */ }
+})
+
+watch(() => route.params.id, (newId) => {
+  if (newId) {
+    noteId.value = newId
+    loadNote()
+  }
+})
+
+onUnmounted(() => {
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
 })
 
 async function saveNote() {
@@ -169,29 +185,35 @@ async function aiAction(type) {
 
 async function createShare() {
   if (noteId.value === 'new') { alert('请先保存笔记'); return }
-  const r = await shareApi.create(noteId.value, {
-    password: sharePassword.value || null,
-    expires_in: shareExpires.value,
-    allow_download: shareAllowDownload.value
-  })
-  if (r.success) {
-    shareUrl.value = `${window.location.origin}/#/share/${r.share_token}`
-  } else {
-    alert(r.message)
-  }
+  sharing.value = true
+  try {
+    const r = await shareApi.create(noteId.value, {
+      password: sharePassword.value || null,
+      expires_in: shareExpires.value,
+      allow_download: shareAllowDownload.value
+    })
+    if (r.success) {
+      shareUrl.value = `${window.location.origin}/#/share/${r.share_token}`
+    } else {
+      alert(r.message)
+    }
+  } finally { sharing.value = false }
 }
 
 async function exportNote(format) {
   const r = await notesStore.exportNote(noteId.value, format)
-  if (r.success) {
-    const blob = new Blob([r.content], { type: r.mime_type })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = r.filename
-    a.click()
-    URL.revokeObjectURL(url)
+  if (!r.success) {
+    alert(r.message || '导出失败')
+    showMoreMenu.value = false
+    return
   }
+  const blob = new Blob([r.content || ''], { type: r.mime_type || 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = r.filename || `note.${format}`
+  a.click()
+  URL.revokeObjectURL(url)
   showMoreMenu.value = false
 }
 

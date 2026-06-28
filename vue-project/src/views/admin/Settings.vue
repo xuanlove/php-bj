@@ -47,9 +47,9 @@
         <div class="form-group"><label>模型名称</label><input type="text" v-model="form.custom_openai_model" class="input" placeholder="gpt-4"></div>
       </fieldset>
       <fieldset><legend>系统参数</legend>
-        <div class="form-group"><label>最大上传大小 (MB)</label><input type="number" v-model="form.max_upload_size" class="input"></div>
-        <div class="form-group"><label>最大登录尝试</label><input type="number" v-model="form.max_login_attempts" class="input"></div>
-        <div class="form-group"><label>登录锁定时长 (秒)</label><input type="number" v-model="form.login_lockout_duration" class="input"></div>
+        <div class="form-group"><label>最大上传大小 (MB)</label><input type="number" v-model.number="form.max_upload_size" class="input"></div>
+        <div class="form-group"><label>最大登录尝试</label><input type="number" v-model.number="form.max_login_attempts" class="input"></div>
+        <div class="form-group"><label>登录锁定时长 (秒)</label><input type="number" v-model.number="form.login_lockout_duration" class="input"></div>
       </fieldset>
       <button class="btn btn-primary" @click="saveSettings" :disabled="saving">{{ saving ? '保存中...' : '保存设置' }}</button>
     </div>

@@ -151,7 +151,8 @@ class Auth {
         
         if ($pwdRow && password_verify($password, $pwdRow['password'])) {
             // Session固定防护：登录成功后重新生成Session ID（保留现有session数据）
-            
+            session_regenerate_id(true);
+
             // 更新最后登录时间
             $update = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
             $update->execute([$user['id']]);
@@ -218,7 +219,7 @@ class Auth {
     }
     
     // 获取邀请码列表
-    public function getInvitationCodes($status = null, $page = 1, $per_page = 20) {
+    public function getInvitationCodes($status = null, $page = 1, $per_page = 20, $user_id = null, $admin = false) {
         $offset = ($page - 1) * $per_page;
         
         $sql = "SELECT ic.*, 
@@ -229,9 +230,18 @@ class Auth {
                 LEFT JOIN users u2 ON ic.used_by = u2.id";
         
         $params = [];
+        $whereClauses = [];
         if ($status && in_array($status, ['active', 'used', 'expired'])) {
-            $sql .= " WHERE ic.status = ?";
+            $whereClauses[] = "ic.status = ?";
             $params[] = $status;
+        }
+        // 防御性深度检查：非管理员仅能查看自己创建的邀请码
+        if (!$admin) {
+            $whereClauses[] = "ic.created_by = ?";
+            $params[] = $user_id;
+        }
+        if (!empty($whereClauses)) {
+            $sql .= " WHERE " . implode(' AND ', $whereClauses);
         }
         
         // 标记已过期但状态仍为active的邀请码
@@ -246,14 +256,22 @@ class Auth {
         $codes = $stmt->fetchAll();
         
         // 获取总数
-        $countSql = "SELECT COUNT(*) as total FROM invitation_codes";
+        $countSql = "SELECT COUNT(*) as total FROM invitation_codes ic";
+        $countParams = [];
+        $countWhereClauses = [];
         if ($status && in_array($status, ['active', 'used', 'expired'])) {
-            $countSql .= " WHERE status = ?";
-            $countStmt = $this->db->prepare($countSql);
-            $countStmt->execute([$status]);
-        } else {
-            $countStmt = $this->db->query($countSql);
+            $countWhereClauses[] = "ic.status = ?";
+            $countParams[] = $status;
         }
+        if (!$admin) {
+            $countWhereClauses[] = "ic.created_by = ?";
+            $countParams[] = $user_id;
+        }
+        if (!empty($countWhereClauses)) {
+            $countSql .= " WHERE " . implode(' AND ', $countWhereClauses);
+        }
+        $countStmt = $this->db->prepare($countSql);
+        $countStmt->execute($countParams);
         $total = $countStmt->fetch()['total'];
         
         return [
@@ -266,14 +284,20 @@ class Auth {
     }
     
     // 删除邀请码
-    public function deleteInvitationCode($code_id) {
-        $stmt = $this->db->prepare("DELETE FROM invitation_codes WHERE id = ?");
-        $stmt->execute([$code_id]);
+    public function deleteInvitationCode($code_id, $user_id = null, $admin = false) {
+        // 防御性深度检查：非管理员仅能删除自己创建的邀请码
+        if (!$admin) {
+            $stmt = $this->db->prepare("DELETE FROM invitation_codes WHERE id = ? AND created_by = ?");
+            $stmt->execute([$code_id, $user_id]);
+        } else {
+            $stmt = $this->db->prepare("DELETE FROM invitation_codes WHERE id = ?");
+            $stmt->execute([$code_id]);
+        }
         return $stmt->rowCount() > 0;
     }
     
     // 批量删除邀请码
-    public function batchDeleteInvitationCodes($ids) {
+    public function batchDeleteInvitationCodes($ids, $user_id = null, $admin = false) {
         if (empty($ids) || !is_array($ids)) {
             return 0;
         }
@@ -284,8 +308,16 @@ class Auth {
             return 0;
         }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $this->db->prepare("DELETE FROM invitation_codes WHERE id IN ($placeholders)");
-        $stmt->execute(array_values($ids));
+        // 防御性深度检查：非管理员仅能删除自己创建的邀请码
+        if (!$admin) {
+            $sql = "DELETE FROM invitation_codes WHERE id IN ($placeholders) AND created_by = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute(array_merge(array_values($ids), [$user_id]));
+        } else {
+            $sql = "DELETE FROM invitation_codes WHERE id IN ($placeholders)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute(array_values($ids));
+        }
         return $stmt->rowCount();
     }
     

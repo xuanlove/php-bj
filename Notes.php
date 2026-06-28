@@ -73,14 +73,16 @@ class Notes {
             // 严格验证字段名是否在白名单中
             if (in_array($key, $allowed_fields)) {
                 // 输入过滤
-                if ($key !== 'content') {  // 内容不过滤，保留原始格式
+                if ($key === 'tags') {
+                    if (is_array($value)) {
+                        $value = json_encode($value);
+                    } else {
+                        $value = sanitizeInput($value);
+                    }
+                } elseif ($key !== 'content') {  // 内容不过滤，保留原始格式
                     $value = sanitizeInput($value);
                 }
-                
-                if ($key === 'tags' && is_array($value)) {
-                    $value = json_encode($value);
-                }
-                
+
                 // 使用参数化查询（字段名已在白名单中验证）
                 $updates[] = "`" . $key . "` = ?";
                 $values[] = $value;
@@ -137,16 +139,16 @@ class Notes {
         $stmt->execute([$note_id]);
         $attachments = $stmt->fetchAll();
         
-        foreach ($attachments as $attachment) {
-            if (file_exists($attachment['file_path'])) {
-                @unlink($attachment['file_path']);
-            }
-        }
-        
         // 删除笔记（数据库级联会删除附件记录）
         $stmt = $this->db->prepare("DELETE FROM notes WHERE id = ?");
         try {
             $stmt->execute([$note_id]);
+            // 数据库删除成功后再删除附件文件，避免 DB 删除失败时文件已丢失
+            foreach ($attachments as $attachment) {
+                if (file_exists($attachment['file_path'])) {
+                    @unlink($attachment['file_path']);
+                }
+            }
             return ['success' => true, 'message' => '笔记及相关文件已删除'];
         } catch (Exception $e) {
             return ['success' => false, 'message' => '删除失败，请稍后重试'];
@@ -291,7 +293,7 @@ class Notes {
     
     // 验证笔记所有权
     private function verifyOwnership($note_id, $user_id) {
-        $stmt = $this->db->prepare("SELECT id FROM notes WHERE id = ? AND user_id = ?");
+        $stmt = $this->db->prepare("SELECT id FROM notes WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
         $stmt->execute([$note_id, $user_id]);
         return $stmt->fetch() !== false;
     }

@@ -26,23 +26,36 @@ export const useNotificationsStore = defineStore('notifications', () => {
     const r = await notificationsApi.markRead(id)
     if (r.success) {
       const n = notifications.value.find(x => x.id === id)
-      if (n) n.is_read = true
+      if (n && !n.is_read) {
+        n.is_read = true
+        unreadCount.value = Math.max(0, unreadCount.value - 1)
+      }
     }
   }
 
   async function markAllAsRead() {
-    await notificationsApi.markAllRead()
-    notifications.value.forEach(n => n.is_read = true)
+    const r = await notificationsApi.markAllRead()
+    if (r.success) {
+      notifications.value.forEach(n => n.is_read = true)
+      unreadCount.value = 0
+    }
   }
 
   async function deleteNotification(id) {
-    const r = await notificationsApi.delete(id)
-    if (r.success) notifications.value = notifications.value.filter(x => x.id !== id)
+    const n = notifications.value.find(x => x.id === id)
+    if (n && !n.is_read) {
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    await notificationsApi.delete(id)
+    notifications.value = notifications.value.filter(x => x.id !== id)
   }
 
   async function clearAll() {
-    await notificationsApi.clear()
-    notifications.value = []
+    const r = await notificationsApi.clear()
+    if (r.success) {
+      notifications.value = []
+      unreadCount.value = 0
+    }
   }
 
   return { notifications, loading, unreadCount, fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead, deleteNotification, clearAll }

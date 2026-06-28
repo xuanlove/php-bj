@@ -27,6 +27,9 @@ class NoteShares {
      * @return array
      */
     public function shareToUser($note_id, $owner_id, $shared_with_username, $permission = 'read') {
+        if (!in_array($permission, ['read', 'edit'])) {
+            return ['success' => false, 'message' => '无效的权限类型'];
+        }
         try {
             // 验证笔记所有权
             $stmt = $this->db->prepare("SELECT id, title FROM notes WHERE id = ? AND user_id = ?");
@@ -45,7 +48,7 @@ class NoteShares {
             }
 
             // 不能分享给自己
-            if ($sharedUser['id'] === $owner_id) {
+            if ($sharedUser['id'] == $owner_id) {
                 return ['success' => false, 'message' => '不能分享给自己'];
             }
 
@@ -73,12 +76,17 @@ class NoteShares {
             );
             $stmt->execute([$note_id, $owner_id, $shared_with_id, $permission]);
 
+            // 查询所有者用户名
+            $ownerStmt = $this->db->prepare("SELECT username FROM users WHERE id = ?");
+            $ownerStmt->execute([$owner_id]);
+            $ownerName = $ownerStmt->fetchColumn() ?: '未知用户';
+
             // 创建通知
             $this->createNotification(
                 $shared_with_id,
                 'share',
                 '收到新笔记分享',
-                "用户 {$_SESSION['username']} 分享了笔记《{$note['title']}》给你",
+                "用户 {$ownerName} 分享了笔记《{$note['title']}》给你",
                 "index.html?note={$note_id}"
             );
 
@@ -200,6 +208,9 @@ class NoteShares {
      * @return array
      */
     public function updatePermission($share_id, $owner_id, $permission) {
+        if (!in_array($permission, ['read', 'edit'])) {
+            return ['success' => false, 'message' => '无效的权限类型'];
+        }
         try {
             $stmt = $this->db->prepare(
                 "UPDATE note_shares SET permission = ? WHERE id = ? AND owner_id = ?"

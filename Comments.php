@@ -47,8 +47,8 @@ class Comments {
 
             // 如果是回复，验证父评论存在
             if ($parent_id !== null) {
-                $stmt = $this->db->prepare("SELECT id FROM comments WHERE id = ? AND is_deleted = 0");
-                $stmt->execute([$parent_id]);
+                $stmt = $this->db->prepare("SELECT id FROM comments WHERE id = ? AND note_id = ? AND is_deleted = 0");
+                $stmt->execute([$parent_id, $note_id]);
                 if (!$stmt->fetch()) {
                     return ['success' => false, 'message' => '父评论不存在'];
                 }
@@ -167,7 +167,7 @@ class Comments {
                 return ['success' => false, 'message' => '评论不存在'];
             }
 
-            if ($comment['user_id'] !== $user_id) {
+            if ($comment['user_id'] != $user_id) {
                 return ['success' => false, 'message' => '只能编辑自己的评论'];
             }
 
@@ -209,7 +209,7 @@ class Comments {
             }
 
             // 只有评论作者可以删除自己的评论
-            if ($comment['user_id'] !== $user_id) {
+            if ($comment['user_id'] != $user_id) {
                 return ['success' => false, 'message' => '只能删除自己的评论'];
             }
 
@@ -259,7 +259,7 @@ class Comments {
 
         // 检查是否是协作者
         $stmt = $this->db->prepare(
-            "SELECT id FROM note_shares WHERE note_id = ? AND shared_with_id = ?"
+            "SELECT id FROM note_shares WHERE note_id = ? AND shared_with_id = ? AND (SELECT deleted_at FROM notes WHERE id = note_id) IS NULL"
         );
         $stmt->execute([$note_id, $user_id]);
         if ($stmt->fetch()) {

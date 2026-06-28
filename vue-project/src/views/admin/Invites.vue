@@ -11,7 +11,7 @@
     </div>
     <h2>邀请码管理</h2>
     <div class="toolbar">
-      <button class="btn btn-primary" @click="generateCodes"><i class="fas fa-plus"></i>生成5个</button>
+      <button class="btn btn-primary" :disabled="generating" @click="generateCodes"><i class="fas fa-plus"></i>{{ generating ? '生成中...' : '生成5个' }}</button>
     </div>
     <div v-if="loading" class="loading"><i class="fas fa-spinner fa-spin"></i></div>
     <div v-else-if="codes.length === 0" class="empty">暂无邀请码</div>
@@ -34,6 +34,7 @@ import { adminApi } from '@/api'
 
 const codes = ref([])
 const loading = ref(false)
+const generating = ref(false)
 
 onMounted(async () => {
   loading.value = true
@@ -43,11 +44,16 @@ onMounted(async () => {
 })
 
 async function generateCodes() {
-  const r = await adminApi.generateInvite(5, 30)
-  if (r.success) {
-    alert(`生成了 ${r.count} 个邀请码`)
-    const list = await adminApi.inviteList()
-    if (list.success) codes.value = list.data?.codes || list.data || []
+  generating.value = true
+  try {
+    const r = await adminApi.generateInvite(5, 30)
+    if (r.success) {
+      alert(`生成了 ${r.count || 0} 个邀请码`)
+      const list = await adminApi.inviteList()
+      if (list.success) codes.value = list.data?.codes || list.data || []
+    }
+  } finally {
+    generating.value = false
   }
 }
 

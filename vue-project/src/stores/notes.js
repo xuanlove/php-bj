@@ -30,7 +30,12 @@ export const useNotesStore = defineStore('notes', () => {
   }
 
   async function updateNote(id, data) {
-    return await notesApi.update(id, data)
+    const r = await notesApi.update(id, data)
+    if (r.success) {
+      const i = notes.value.findIndex(n => n.id === id)
+      if (i > -1) Object.assign(notes.value[i], r.note || r.data || data)
+    }
+    return r
   }
 
   async function deleteNote(id) {
@@ -50,8 +55,7 @@ export const useNotesStore = defineStore('notes', () => {
   }
 
   async function batchExport(ids, format = 'markdown') {
-    const r = await notesApi.noteExport(ids, format)
-    return r
+    return await notesApi.batchExport(ids, format)
   }
 
   async function fetchFolders() {
