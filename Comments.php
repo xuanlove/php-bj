@@ -45,6 +45,12 @@ class Comments {
                 return ['success' => false, 'message' => '评论内容不能超过1000字'];
             }
 
+            // 归一化 parent_id：0 / 空字符串 / null 均视为顶层评论（转成 NULL 以满足外键约束）
+            if ($parent_id !== null && $parent_id !== '' && !is_numeric($parent_id)) {
+                return ['success' => false, 'message' => '无效的父评论'];
+            }
+            $parent_id = ($parent_id === null || $parent_id === '' || intval($parent_id) === 0) ? null : intval($parent_id);
+
             // 如果是回复，验证父评论存在
             if ($parent_id !== null) {
                 $stmt = $this->db->prepare("SELECT id FROM comments WHERE id = ? AND is_deleted = 0");

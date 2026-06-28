@@ -513,6 +513,12 @@ class Notes {
     
     // 创建文件夹
     public function createFolder($user_id, $name, $parent_id = null) {
+        // parent_id 为 0 或空字符串时视为顶层文件夹，转成 NULL 以满足外键约束
+        if ($parent_id !== null && $parent_id !== '' && !is_numeric($parent_id)) {
+            return ['success' => false, 'message' => '无效的父文件夹'];
+        }
+        $parent_id = ($parent_id === null || $parent_id === '' || intval($parent_id) === 0) ? null : intval($parent_id);
+
         $stmt = $this->db->prepare("INSERT INTO folders (user_id, name, parent_id) VALUES (?, ?, ?)");
         try {
             $stmt->execute([$user_id, $name, $parent_id]);
