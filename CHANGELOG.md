@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-06-29
+
+### Added
+
+#### Markdown 代码高亮支持
+- 新增前端 Markdown 渲染工具模块 `vue-project/src/utils/markdown.js`，集成 marked + highlight.js
+- 笔记编辑器新增三态视图切换：编辑 / 分屏预览 / 纯预览，预览区实时渲染 Markdown 并高亮代码
+- 代码块支持语言标识（javascript、python、php 等），自动语法高亮
+- 行内代码同样支持高亮渲染
+- 分享页（SharedNote.vue）从纯文本改为 Markdown 渲染，代码高亮生效
+- 后端分享页（Share.php）引入 highlight.js CDN 并初始化高亮
+- HTML 导出新增 `renderMarkdownForExport()` 方法，真正解析 Markdown（标题/代码块/列表/引用/粗斜体/链接等），并内嵌 highlight.js CDN 实现导出文件代码高亮
+
+#### 安装检测机制
+- 新增三层安装状态防御：前端启动检查（`main.js` bootstrap）、后端 API 早期拦截（`api.php`）、数据库连接放行（`conn.php`）
+- 新增 `check_install` 接口，未安装时返回 503 + 跳转指引
+- 未安装时仅放行白名单接口（check_install / health / get_csrf_token），避免 DB 连接失败污染响应
+- 安装成功后生成 `install.lock`（权限 0444）防止重复安装与恶意重装
+
+#### 安装向导增强
+- `createAdmin` 增加用户名 / 邮箱 / 密码格式校验
+- `.env` 密码值用引号包裹并转义，`chmod('.env', 0600)` 限制权限
+- `conn.php` 增强 `.env` 解析：支持 `export` 前缀、引号包裹值、行内注释
+
+### Changed
+
+#### 安全性增强
+- `Auth.php` 登录成功后调用 `session_regenerate_id(true)` 防 session 固定
+- `Auth.php` `getCurrentUser()` 增加 `status = 'active'` 检查，被禁用用户强制登出
+- `VersionControl.php` `rollbackToVersion` 增加笔记所有权验证
+- `NoteShares.php` `updatePermission` 权限白名单 ['read','edit']
+- `TeamSpaces.php` `addMember` 角色白名单、`shareNoteToTeam` 权限白名单 + 成员校验
+- `Share.php` 密码验证 session 1 小时过期，修复运算符优先级
+- `AIService.php` `callChatGPT`/`callClaude` 校验 api_url，移除冗余 response 字段
+- `CaptchaClass.php` 验证失败后清除验证码，防止重放
+
+#### 前端健壮性改进
+- `api/index.js` 修复响应拦截器吞错误、CSRF token 重置、401 不在公开页跳转
+- `router/index.js` SharedNote 路由加 `meta:{public:true}`，beforeEach 仅在 requiresAuth 时 fetchCurrentUser
+- `NoteEditor.vue` watch 路由参数、onUnmounted 清定时器、click-outside 关下拉
+- `Settings.vue` 2FA 状态错误处理、`.number` 修饰符
+- `stores/notifications.js` markAllAsRead / clearAll 校验 success
+- `RecycleBin.vue` 操作校验 success + 错误提示
+- `admin/Users.vue` toggleStatus 改为 active↔suspended
+- `Profile.vue` 2FA 按钮状态判断 + onMounted 兜底
+- `Layout.vue` 搜索跳 Notes 路由、createNote 失败提示、toggleNotifications
+- `Notes.vue` 搜索优先级、createNote 失败提示
+- `Login.vue` 注册成功清空表单
+- `SharedNote.vue` watch token
+- `main.scss` 补充 `--text-muted`、`--tertiary-bg` CSS 变量
+
+#### 其他改进
+- `RateLimiter.php` 窗口过期重置、retry_after max(0,...)
+- `adapters/S3StorageAdapter.php` 新增 `private bool $sslVerify`
+- `adapters/AliyunOSSAdapter.php` + `TencentCOSAdapter.php` fopen 用 finally 关闭
+- `LoginLog.php` json_decode 空值检查
+- `Comments.php` 去掉 sanitizeInput 改用 trim(strip_tags()) 避免双重转义
+- `ShareClass.php` expires_in 整数验证
+- `TwoFactorAuth.php` otpauth URL 邮箱 rawurlencode
+- 新增 `@fortawesome/fontawesome-free` 依赖
+
+### Fixed
+
+- 修复 `Notes.php` `createFolder` 传 `parent_id=0` 因外键约束失败的问题（0/空/null 统一转 null）
+- 修复 `Comments.php` `addComment` 传 `parent_id=0` 报"父评论不存在"的问题（同上归一化处理）
+- 修复 `api.php` `backup_perform` 仅从 `$_GET` 读取 backup_id 导致前端 POST JSON body 请求始终返回"备份配置不存在"的问题（兼容 POST body 与 GET 参数）
+- 修复 `Notes.php` `renderMarkdownForExport` 代码块占位符使用 `\x00`（null 字节）被段落处理的 `trim()` 去除，导致 `str_replace` 无法还原、代码块在 HTML 导出中丢失的问题（改用 `\x02`/`\x03` 控制字符）
+- 修复 `ErrorHandler.php` 直接引用 `E_STRICT` 常量在 PHP 8.4+ 触发 deprecated 警告污染 JSON 响应的问题（改用 `defined` 检查）
+- 修复 `conn.php` `ENCRYPTION_KEY` 检查在未安装时拦截 `check_install` 接口的问题（未安装时跳过检查）
+- 修复 `api.php` `sendResponse` 函数重复定义问题
+- 修复 `install.php` `check_install` 接口被 DB 连接失败绕过的问题（检测提前到所有 require 之前）
+
+---
+
 ## [2.0.0] - 2026-06-24
 
 ### Added
