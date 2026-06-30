@@ -988,7 +988,7 @@ switch ($request) {
         sendResponse($versionControl->saveVersion(
             $data['note_id'],
             $user_id,
-            $data['content'],
+            $data,
             $data['change_description'] ?? ''
         ));
         break;

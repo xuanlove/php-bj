@@ -54,9 +54,9 @@ class VersionControl {
                 $note_id,
                 $user_id,
                 $newVersion,
-                $noteData['title'],
-                $noteData['content'],
-                $noteData['content_type'],
+                $noteData['title'] ?? null,
+                $noteData['content'] ?? '',
+                $noteData['content_type'] ?? 'markdown',
                 sanitizeInput($changeSummary)
             ]);
             
